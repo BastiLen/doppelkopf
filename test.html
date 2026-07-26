@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Test</title></head>
+<body style="background:#141a24;color:#e0b64f;font-family:sans-serif;padding:40px">
+<h1>Test erfolgreich</h1>
+<p>Wenn du das siehst, liefert GitHub Pages HTML korrekt aus.</p>
+<p id="react-test">React-Test laeuft...</p>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script>
+  window.addEventListener('load', function(){
+    var el = document.getElementById('react-test');
+    if (window.React) { el.textContent = 'React laedt korrekt (Version ' + React.version + ')'; el.style.color='#4f9d78'; }
+    else { el.textContent = 'React konnte NICHT geladen werden'; el.style.color='#d0555a'; }
+  });
+</script>
+</body></html>
