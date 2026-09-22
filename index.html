@@ -14,12 +14,18 @@
   <link rel="apple-touch-icon" href="icon-180.png" />
 
   <style>
+    /* Ohne dieses Reset zählt Padding bei width:100%-Elementen zur Breite
+       dazu und sprengt den Bildschirmrand (z. B. die Zeilen bei "Neue Runde"). */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
     html, body {
       margin: 0;
       padding: 0;
       background: #141a24;
       /* Sichere Bereiche fürs iPhone-Notch/Home-Indicator */
       min-height: 100vh;
+      overflow-x: hidden;
     }
     #root {
       min-height: 100vh;
@@ -794,7 +800,11 @@ function PlayerManager({
   }, "Umbenennen"), /*#__PURE__*/React.createElement("button", {
     style: S.btnSmallDanger,
     onClick: () => removePlayer(p.id)
-  }, "L\xF6schen"))))), /*#__PURE__*/React.createElement("div", {
+  }, "L\xF6schen"))))), /*#__PURE__*/React.createElement(BackupBox, {
+    data: data,
+    update: update,
+    confirm: confirm
+  }), /*#__PURE__*/React.createElement("div", {
     style: S.devBox
   }, /*#__PURE__*/React.createElement("div", {
     style: S.devTitle
@@ -825,34 +835,353 @@ function PlayerManager({
 }
 
 // ============================================================
-// Spiel-Management (Phase 2)
+// Datensicherung: Backup als JSON-Datei herunterladen / einspielen
 // ============================================================
+const BACKUP_KEY = "doko:lastBackup";
+function makeBackup(data) {
+  return JSON.stringify({
+    app: "doppelkopf-statistik",
+    version: 1,
+    exportedAt: Date.now(),
+    players: data.players,
+    games: data.games
+  }, null, 2);
+}
+
+// Liest eine Backup-Datei. Wirft einen Error mit deutscher Meldung,
+// wenn die Datei nicht passt.
+function parseBackup(text) {
+  let d;
+  try {
+    d = JSON.parse(text);
+  } catch (e) {
+    throw new Error("Die Datei ist keine gültige Backup-Datei (kein JSON).");
+  }
+  if (!d || !Array.isArray(d.players) || !Array.isArray(d.games)) {
+    throw new Error("In der Datei wurden keine Spieler/Spiele gefunden.");
+  }
+  const playersOk = d.players.every(p => p && typeof p.id === "string" && typeof p.name === "string");
+  const gamesOk = d.games.every(g => g && typeof g.id === "string" && Array.isArray(g.playerIds) && Array.isArray(g.rounds));
+  if (!playersOk || !gamesOk) {
+    throw new Error("Die Datei ist beschädigt oder hat ein unbekanntes Format.");
+  }
+  return {
+    players: d.players,
+    games: d.games,
+    exportedAt: d.exportedAt || null
+  };
+}
+function downloadFile(filename, text) {
+  const blob = new Blob([text], {
+    type: "application/json"
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function BackupBox({
+  data,
+  update,
+  confirm
+}) {
+  const fileRef = useRef(null);
+  const [msg, setMsg] = useState(null); // { text, error }
+  const [lastBackup, setLastBackup] = useState(() => {
+    try {
+      return Number(localStorage.getItem(BACKUP_KEY)) || null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const doExport = () => {
+    const now = Date.now();
+    const d = new Date(now);
+    const pad = n => String(n).padStart(2, "0");
+    const name = `doppelkopf-backup-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.json`;
+    downloadFile(name, makeBackup(data));
+    try {
+      localStorage.setItem(BACKUP_KEY, String(now));
+    } catch (e) {}
+    setLastBackup(now);
+    setMsg({
+      text: `Backup „${name}" wurde heruntergeladen.`,
+      error: false
+    });
+  };
+  const onFile = async e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ""; // gleiche Datei erneut wählbar
+    if (!file) return;
+    let backup;
+    try {
+      backup = parseBackup(await file.text());
+    } catch (err) {
+      setMsg({
+        text: err.message,
+        error: true
+      });
+      return;
+    }
+    const from = backup.exportedAt ? ` vom ${formatDate(backup.exportedAt)}` : "";
+    confirm({
+      message: `Backup${from} mit ${backup.players.length} Spielern und ${backup.games.length} Spielen einspielen? ` + `Die aktuellen Daten (${data.players.length} Spieler, ${data.games.length} Spiele) werden ersetzt – auf allen Geräten.`,
+      confirmLabel: "Einspielen",
+      danger: true,
+      onConfirm: () => {
+        update(() => ({
+          players: backup.players,
+          games: backup.games
+        }));
+        setMsg({
+          text: "Backup wurde eingespielt.",
+          error: false
+        });
+      }
+    });
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: S.devBox
+  }, /*#__PURE__*/React.createElement("div", {
+    style: S.devTitle
+  }, "Datensicherung"), /*#__PURE__*/React.createElement("p", {
+    style: S.devText
+  }, "L\xE4dt alle Spieler und Spiele als Datei herunter. \xDCber \u201EBackup einspielen\" l\xE4sst sich so ein Stand sp\xE4ter wiederherstellen."), /*#__PURE__*/React.createElement("div", {
+    style: S.devActions
+  }, /*#__PURE__*/React.createElement("button", {
+    style: S.devBtn,
+    onClick: doExport
+  }, "Backup herunterladen"), /*#__PURE__*/React.createElement("button", {
+    style: S.devBtnGhost,
+    onClick: () => fileRef.current && fileRef.current.click()
+  }, "Backup einspielen"), /*#__PURE__*/React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    style: {
+      display: "none"
+    },
+    onChange: onFile
+  })), /*#__PURE__*/React.createElement("p", {
+    style: {
+      ...S.devText,
+      margin: "12px 0 0",
+      fontSize: 12
+    }
+  }, lastBackup ? `Letztes Backup auf diesem Gerät: ${formatDate(lastBackup)}` : "Auf diesem Gerät wurde noch kein Backup erstellt."), msg && /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.devText,
+      margin: "8px 0 0",
+      color: msg.error ? C.red : C.green
+    }
+  }, msg.text));
+}
+
+// ============================================================
+// Spiel-Management (Phase 2)
+// + Runden nachträglich bearbeiten/löschen
+// + Zusammenfassung nach dem Spiel (inkl. Teilen)
+// ============================================================
+
+// Baut aus Gewinnern + gemeinsamer Punktzahl ein Runden-Objekt.
+// Alle Gewinner bekommen dieselbe Punktzahl, Verlierer bekommen 0.
+function buildRound(playerIds, winners, points) {
+  const pts = Number(points) || 0;
+  const scores = {};
+  playerIds.forEach(id => {
+    scores[id] = winners.includes(id) ? pts : 0;
+  });
+  return {
+    winners: [...winners],
+    scores
+  };
+}
+
+// Punktzahl einer Runde = Punkte der Gewinner.
+function roundPoints(round) {
+  const winners = round.winners || [];
+  if (winners.length === 0) return 0;
+  return Math.max(...winners.map(id => Number(round.scores?.[id]) || 0));
+}
+
+// Prüft einen Runden-Entwurf. Gibt eine Fehlermeldung oder "" zurück.
+function validateRoundDraft(draft) {
+  const wCount = draft.winners.length;
+  if (wCount < 1 || wCount > 3) {
+    return "Markiert 1 bis 3 Gewinner (Solo = 1 Gewinner oder 3 Gewinner).";
+  }
+  if (draft.points === "" || draft.points == null) {
+    return "Bitte die Punktzahl für die Runde eintragen.";
+  }
+  return "";
+}
+const WEEKDAYS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+function formatDate(ts, withWeekday = false) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, "0");
+  const s = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+  return withWeekday ? `${WEEKDAYS[d.getDay()]}, ${s}` : s;
+}
+
+// Kennzahlen für die Zusammenfassung eines Spiels (abgeleitet, nie gespeichert).
+function computeGameSummary(game) {
+  const totals = gameTotals(game);
+  const places = gamePlacements(game);
+  const ranked = [...game.playerIds].sort((a, b) => places[a] - places[b]);
+  const solos = [];
+  let bestRound = null;
+  game.rounds.forEach((r, idx) => {
+    const info = analyzeRound(r, game.playerIds);
+    if (info.isSolo) solos.push({
+      playerId: info.soloPlayerId,
+      won: info.soloWon
+    });
+    const pts = roundPoints(r);
+    if (!bestRound || pts > bestRound.points) {
+      bestRound = {
+        points: pts,
+        number: idx + 1,
+        winners: info.winners,
+        isSolo: info.isSolo
+      };
+    }
+  });
+  const durationMin = game.startedAt && game.finishedAt ? Math.round((game.finishedAt - game.startedAt) / 60000) : null;
+  return {
+    totals,
+    places,
+    ranked,
+    solos,
+    bestRound,
+    durationMin
+  };
+}
+function formatDuration(min) {
+  if (min == null) return "—";
+  if (min < 60) return `${min} Min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h} Std ${m} Min` : `${h} Std`;
+}
+const MEDALS = {
+  1: "🥇",
+  2: "🥈",
+  3: "🥉"
+};
+
+// Text für WhatsApp & Co.
+function buildShareText(game, nameOf) {
+  const sum = computeGameSummary(game);
+  const lines = [];
+  lines.push(`🃏 Doppelkopf – ${formatDate(game.finishedAt || game.startedAt, true)}`);
+  const soloTxt = sum.solos.length === 1 ? "1 Solo" : `${sum.solos.length} Solos`;
+  lines.push(`${game.rounds.length} Runden · ${soloTxt}`);
+  lines.push("");
+  sum.ranked.forEach(id => {
+    const place = sum.places[id];
+    const mark = MEDALS[place] || `${place}.`;
+    lines.push(`${mark} ${nameOf(id)} – ${sum.totals[id]} Punkte`);
+  });
+  if (sum.bestRound && sum.bestRound.points > 0) {
+    const who = sum.bestRound.winners.map(nameOf).join(" & ");
+    lines.push("");
+    lines.push(`🔥 Beste Runde: ${who} mit ${sum.bestRound.points} Punkten${sum.bestRound.isSolo ? " (Solo)" : ""}`);
+  }
+  if (sum.solos.length > 0) {
+    const byPlayer = {};
+    sum.solos.forEach(s => {
+      byPlayer[s.playerId] = byPlayer[s.playerId] || {
+        played: 0,
+        won: 0
+      };
+      byPlayer[s.playerId].played += 1;
+      if (s.won) byPlayer[s.playerId].won += 1;
+    });
+    const parts = Object.keys(byPlayer).map(id => `${nameOf(id)} ${byPlayer[id].won}/${byPlayer[id].played}`);
+    lines.push(`🎯 Solos gewonnen: ${parts.join(", ")}`);
+  }
+  return lines.join("\n");
+}
+
+// Teilt Text über das Teilen-Menü des Handys, sonst Zwischenablage.
+// Rückgabe: "geteilt" | "kopiert" | "abgebrochen" | "fehler"
+async function shareText(text) {
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        text
+      });
+      return "geteilt";
+    } catch (e) {
+      if (e && e.name === "AbortError") return "abgebrochen";
+      // sonst: auf Kopieren zurückfallen
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    return "kopiert";
+  } catch (e) {}
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok ? "kopiert" : "fehler";
+  } catch (e) {
+    return "fehler";
+  }
+}
 function GameManager({
   data,
   update,
   confirm
 }) {
+  // ID des Spiels, dessen Zusammenfassung gerade angezeigt wird
+  const [summaryId, setSummaryId] = useState(null);
   const activeGame = data.games.find(g => g.status === "active");
   if (activeGame) {
     return /*#__PURE__*/React.createElement(ActiveGame, {
       data: data,
       game: activeGame,
       update: update,
-      confirm: confirm
+      confirm: confirm,
+      onFinished: id => setSummaryId(id)
+    });
+  }
+  const summaryGame = summaryId && data.games.find(g => g.id === summaryId);
+  if (summaryGame) {
+    return /*#__PURE__*/React.createElement(GameSummary, {
+      data: data,
+      game: summaryGame,
+      update: update,
+      confirm: confirm,
+      onBack: () => setSummaryId(null)
     });
   }
   return /*#__PURE__*/React.createElement(GameSetup, {
     data: data,
-    update: update
+    update: update,
+    onOpenGame: id => setSummaryId(id)
   });
 }
 
 // ---------- Setup: 4 Spieler auswählen ----------
 function GameSetup({
   data,
-  update
+  update,
+  onOpenGame
 }) {
   const [selected, setSelected] = useState([]);
+  const [showAll, setShowAll] = useState(false);
+  const nameOf = id => data.players.find(p => p.id === id)?.name || "—";
   const toggle = id => {
     setSelected(prev => {
       if (prev.includes(id)) return prev.filter(x => x !== id);
@@ -875,9 +1204,38 @@ function GameSetup({
     }));
     setSelected([]);
   };
-  const finishedCount = data.games.filter(g => g.status === "finished").length;
+  const finished = data.games.filter(g => g.status === "finished").sort((a, b) => (b.finishedAt || 0) - (a.finishedAt || 0));
+  const visible = showAll ? finished : finished.slice(0, 5);
+  const pastGames = finished.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 28
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: S.standingHead
+  }, "Vergangene Spiele (", finished.length, ")"), visible.map(g => {
+    const places = gamePlacements(g);
+    const winners = g.playerIds.filter(id => places[id] === 1);
+    return /*#__PURE__*/React.createElement("div", {
+      key: g.id,
+      role: "button",
+      tabIndex: -1,
+      style: S.pastGameRow,
+      onClick: () => onOpenGame(g.id)
+    }, /*#__PURE__*/React.createElement("div", {
+      style: S.pastGameMain
+    }, /*#__PURE__*/React.createElement("div", {
+      style: S.pastGameDate
+    }, formatDate(g.finishedAt, true), " \xB7 ", g.rounds.length, " Runden"), /*#__PURE__*/React.createElement("div", {
+      style: S.pastGameNames
+    }, g.rounds.length > 0 ? "🥇 " + winners.map(nameOf).join(" & ") + " · " : "", g.playerIds.map(nameOf).join(", "))), /*#__PURE__*/React.createElement("span", {
+      style: S.statRowArrow
+    }, "\u203A"));
+  }), finished.length > 5 && /*#__PURE__*/React.createElement("button", {
+    style: S.btnTextGhost,
+    onClick: () => setShowAll(v => !v)
+  }, showAll ? "Weniger anzeigen" : `Alle ${finished.length} Spiele anzeigen`));
   if (data.players.length < 4) {
-    return /*#__PURE__*/React.createElement("section", {
+    return /*#__PURE__*/React.createElement("section", null, /*#__PURE__*/React.createElement("div", {
       style: S.placeholder
     }, /*#__PURE__*/React.createElement("div", {
       style: S.placeholderMark
@@ -885,7 +1243,7 @@ function GameSetup({
       style: S.h2
     }, "Neues Spiel"), /*#__PURE__*/React.createElement("p", {
       style: S.placeholderText
-    }, "Ihr braucht mindestens 4 Spieler in der Verwaltung, um ein Spiel zu starten. Legt zuerst unter \u201ESpieler\" eure Gruppe an."));
+    }, "Ihr braucht mindestens 4 Spieler in der Verwaltung, um ein Spiel zu starten. Legt zuerst unter \u201ESpieler\" eure Gruppe an.")), pastGames);
   }
   return /*#__PURE__*/React.createElement("section", null, /*#__PURE__*/React.createElement("div", {
     style: S.sectionHead
@@ -922,13 +1280,228 @@ function GameSetup({
     },
     onClick: startGame,
     disabled: selected.length !== 4
-  }, "Spiel starten"), finishedCount > 0 && /*#__PURE__*/React.createElement("p", {
+  }, "Spiel starten"), pastGames);
+}
+
+// ---------- Eingabe Gewinner + Punkte (neue Runde & Bearbeiten) ----------
+function RoundInputs({
+  playerIds,
+  nameOf,
+  draft,
+  setDraft,
+  onChange
+}) {
+  const toggleWinner = id => {
+    onChange && onChange();
+    setDraft(d => {
+      const has = d.winners.includes(id);
+      const winners = has ? d.winners.filter(x => x !== id) : [...d.winners, id];
+      return {
+        ...d,
+        winners
+      };
+    });
+  };
+  const setPoints = val => {
+    // nur nicht-negative Ganzzahlen (bzw. leer)
+    if (val !== "" && !/^\d+$/.test(val)) return;
+    onChange && onChange();
+    setDraft(d => ({
+      ...d,
+      points: val
+    }));
+  };
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: S.roundList
+  }, playerIds.map(id => {
+    const isWinner = draft.winners.includes(id);
+    return /*#__PURE__*/React.createElement("div", {
+      key: id,
+      role: "button",
+      tabIndex: -1,
+      onClick: () => toggleWinner(id),
+      style: {
+        ...S.winnerRow,
+        ...(isWinner ? S.winnerRowActive : {})
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        ...S.winnerCheck,
+        ...(isWinner ? S.winnerCheckOn : {})
+      }
+    }, isWinner ? "✓" : ""), /*#__PURE__*/React.createElement("span", {
+      style: S.roundName
+    }, nameOf(id)), /*#__PURE__*/React.createElement("span", {
+      style: S.winnerState
+    }, isWinner ? "Sieg" : "Verloren"));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: S.pointsRow
+  }, /*#__PURE__*/React.createElement("label", {
+    style: S.pointsLabel
+  }, "Punkte f\xFCr Gewinner"), /*#__PURE__*/React.createElement("input", {
+    style: S.pointsInput,
+    inputMode: "numeric",
+    placeholder: "z. B. 3",
+    value: draft.points,
+    onChange: e => setPoints(e.target.value)
+  })));
+}
+function SoloBadge({
+  analysis,
+  nameOf
+}) {
+  if (!analysis.isSolo) return null;
+  return /*#__PURE__*/React.createElement("span", {
+    style: S.soloBadge
+  }, "SOLO \xB7", " ", analysis.soloWon ? `${nameOf(analysis.soloPlayerId)} gewinnt allein` : `${nameOf(analysis.soloPlayerId)} verliert allein`);
+}
+
+// ---------- Liste aller Runden eines Spiels, mit Bearbeiten/Löschen ----------
+function RoundList({
+  game,
+  nameOf,
+  update,
+  confirm,
+  collapsedCount = 3,
+  title = "Bisherige Runden"
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const [editIndex, setEditIndex] = useState(null);
+  if (game.rounds.length === 0) return null;
+
+  // Neueste Runde oben
+  const indices = game.rounds.map((_, i) => i).reverse();
+  const visible = showAll ? indices : indices.slice(0, collapsedCount);
+  const deleteRound = idx => {
+    confirm({
+      message: `Runde ${idx + 1} löschen? Die Punkte dieser Runde werden aus dem Spiel entfernt.`,
+      confirmLabel: "Löschen",
+      danger: true,
+      onConfirm: () => update(prev => ({
+        ...prev,
+        games: prev.games.map(g => g.id === game.id ? {
+          ...g,
+          rounds: g.rounds.filter((_, i) => i !== idx)
+        } : g)
+      }))
+    });
+  };
+  const saveRound = (idx, round) => {
+    update(prev => ({
+      ...prev,
+      games: prev.games.map(g => g.id === game.id ? {
+        ...g,
+        rounds: g.rounds.map((r, i) => i === idx ? round : r)
+      } : g)
+    }));
+    setEditIndex(null);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: S.standingCard
+  }, /*#__PURE__*/React.createElement("div", {
+    style: S.standingHead
+  }, title, " (", game.rounds.length, ")"), visible.map(idx => {
+    const r = game.rounds[idx];
+    const info = analyzeRound(r, game.playerIds);
+    return /*#__PURE__*/React.createElement("div", {
+      key: idx,
+      style: S.roundLogRow
+    }, /*#__PURE__*/React.createElement("span", {
+      style: S.roundLogNr
+    }, idx + 1), /*#__PURE__*/React.createElement("div", {
+      style: S.roundLogMain
+    }, /*#__PURE__*/React.createElement("div", {
+      style: S.roundLogNames
+    }, info.winners.map(nameOf).join(" & ") || "—"), info.isSolo && /*#__PURE__*/React.createElement("div", {
+      style: S.roundLogSolo
+    }, "Solo \xB7 ", nameOf(info.soloPlayerId), " ", info.soloWon ? "gewinnt" : "verliert")), /*#__PURE__*/React.createElement("span", {
+      style: S.roundLogPts
+    }, "+", roundPoints(r)), /*#__PURE__*/React.createElement("button", {
+      style: S.iconBtn,
+      "aria-label": `Runde ${idx + 1} bearbeiten`,
+      onClick: () => setEditIndex(idx)
+    }, "\u270E"), /*#__PURE__*/React.createElement("button", {
+      style: {
+        ...S.iconBtn,
+        color: C.red
+      },
+      "aria-label": `Runde ${idx + 1} löschen`,
+      onClick: () => deleteRound(idx)
+    }, "\u2715"));
+  }), game.rounds.length > collapsedCount && /*#__PURE__*/React.createElement("button", {
     style: {
-      ...S.hint,
-      marginTop: 16,
-      textAlign: "center"
+      ...S.btnTextGhost,
+      marginTop: 4
+    },
+    onClick: () => setShowAll(v => !v)
+  }, showAll ? "Weniger anzeigen" : `Alle ${game.rounds.length} Runden anzeigen`), editIndex !== null && game.rounds[editIndex] && /*#__PURE__*/React.createElement(RoundEditDialog, {
+    key: editIndex,
+    number: editIndex + 1,
+    round: game.rounds[editIndex],
+    playerIds: game.playerIds,
+    nameOf: nameOf,
+    onSave: round => saveRound(editIndex, round),
+    onClose: () => setEditIndex(null)
+  }));
+}
+function RoundEditDialog({
+  number,
+  round,
+  playerIds,
+  nameOf,
+  onSave,
+  onClose
+}) {
+  const [draft, setDraft] = useState(() => ({
+    winners: [...(round.winners || [])],
+    points: String(roundPoints(round))
+  }));
+  const [error, setError] = useState("");
+  const analysis = analyzeRound(draft, playerIds);
+  const save = () => {
+    const err = validateRoundDraft(draft);
+    if (err) {
+      setError(err);
+      return;
     }
-  }, finishedCount, " abgeschlossene", finishedCount === 1 ? "s" : "", " Spiel", finishedCount === 1 ? "" : "e", " gespeichert."));
+    onSave(buildRound(playerIds, draft.winners, draft.points));
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: S.modalBackdrop,
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.confirmCard,
+      maxWidth: 400
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    style: S.roundHead
+  }, /*#__PURE__*/React.createElement("span", null, "Runde ", number, " bearbeiten"), /*#__PURE__*/React.createElement(SoloBadge, {
+    analysis: analysis,
+    nameOf: nameOf
+  })), /*#__PURE__*/React.createElement("p", {
+    style: S.roundHint
+  }, "Gewinner antippen und Punktzahl anpassen."), /*#__PURE__*/React.createElement(RoundInputs, {
+    playerIds: playerIds,
+    nameOf: nameOf,
+    draft: draft,
+    setDraft: setDraft,
+    onChange: () => setError("")
+  }), error && /*#__PURE__*/React.createElement("div", {
+    style: S.error
+  }, error), /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.confirmActions,
+      marginTop: 16
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    style: S.confirmCancel,
+    onClick: onClose
+  }, "Abbrechen"), /*#__PURE__*/React.createElement("button", {
+    style: S.confirmOk,
+    onClick: save
+  }, "Speichern"))));
 }
 
 // ---------- Aktives Spiel: Runden erfassen ----------
@@ -936,7 +1509,8 @@ function ActiveGame({
   data,
   game,
   update,
-  confirm
+  confirm,
+  onFinished
 }) {
   const players = game.playerIds.map(id => data.players.find(p => p.id === id));
   const nameOf = id => data.players.find(p => p.id === id)?.name || "—";
@@ -950,46 +1524,13 @@ function ActiveGame({
   const [error, setError] = useState("");
   const totals = gameTotals(game);
   const draftAnalysis = analyzeRound(draft, game.playerIds);
-  const toggleWinner = id => {
-    setError("");
-    setDraft(d => {
-      const has = d.winners.includes(id);
-      const winners = has ? d.winners.filter(x => x !== id) : [...d.winners, id];
-      return {
-        ...d,
-        winners
-      };
-    });
-  };
-  const setPoints = val => {
-    // nur nicht-negative Ganzzahlen (bzw. leer)
-    if (val !== "" && !/^\d+$/.test(val)) return;
-    setError("");
-    setDraft(d => ({
-      ...d,
-      points: val
-    }));
-  };
   const addRound = () => {
-    const wCount = draft.winners.length;
-    if (wCount < 1 || wCount > 3) {
-      setError("Markiert 1 bis 3 Gewinner (Solo = 1 Gewinner oder 3 Gewinner).");
+    const err = validateRoundDraft(draft);
+    if (err) {
+      setError(err);
       return;
     }
-    if (draft.points === "" || draft.points == null) {
-      setError("Bitte die Punktzahl für die Runde eintragen.");
-      return;
-    }
-    const pts = Number(draft.points) || 0;
-    // Alle Gewinner bekommen dieselbe Punktzahl, Verlierer bekommen 0.
-    const scores = {};
-    game.playerIds.forEach(id => {
-      scores[id] = draft.winners.includes(id) ? pts : 0;
-    });
-    const round = {
-      winners: [...draft.winners],
-      scores
-    };
+    const round = buildRound(game.playerIds, draft.winners, draft.points);
     update(prev => ({
       ...prev,
       games: prev.games.map(g => g.id === game.id ? {
@@ -1000,29 +1541,17 @@ function ActiveGame({
     setDraft(emptyDraft());
     setError("");
   };
-  const undoLastRound = () => {
-    if (game.rounds.length === 0) return;
-    confirm({
-      message: "Letzte Runde löschen?",
-      confirmLabel: "Löschen",
-      danger: true,
-      onConfirm: () => update(prev => ({
-        ...prev,
-        games: prev.games.map(g => g.id === game.id ? {
-          ...g,
-          rounds: g.rounds.slice(0, -1)
-        } : g)
-      }))
-    });
+  const doFinish = () => {
+    update(prev => ({
+      ...prev,
+      games: prev.games.map(g => g.id === game.id ? {
+        ...g,
+        status: "finished",
+        finishedAt: Date.now()
+      } : g)
+    }));
+    onFinished && onFinished(game.id);
   };
-  const doFinish = () => update(prev => ({
-    ...prev,
-    games: prev.games.map(g => g.id === game.id ? {
-      ...g,
-      status: "finished",
-      finishedAt: Date.now()
-    } : g)
-  }));
   const finishGame = () => {
     if (game.rounds.length === 0) {
       confirm({
@@ -1068,10 +1597,10 @@ function ActiveGame({
     }
   }, "Runde ", game.rounds.length + 1)), /*#__PURE__*/React.createElement("div", {
     style: S.playersBar
-  }, players.map(p => /*#__PURE__*/React.createElement("span", {
-    key: p.id,
+  }, players.map((p, i) => /*#__PURE__*/React.createElement("span", {
+    key: p?.id || i,
     style: S.playerTag
-  }, p.name))), /*#__PURE__*/React.createElement("div", {
+  }, p ? p.name : "—"))), /*#__PURE__*/React.createElement("div", {
     style: S.standingCard
   }, /*#__PURE__*/React.createElement("div", {
     style: S.standingHead
@@ -1090,54 +1619,30 @@ function ActiveGame({
     style: S.roundCard
   }, /*#__PURE__*/React.createElement("div", {
     style: S.roundHead
-  }, /*#__PURE__*/React.createElement("span", null, "Neue Runde"), draftAnalysis.isSolo && /*#__PURE__*/React.createElement("span", {
-    style: S.soloBadge
-  }, "SOLO \xB7", " ", draftAnalysis.soloWon ? `${nameOf(draftAnalysis.soloPlayerId)} gewinnt allein` : `${nameOf(draftAnalysis.soloPlayerId)} verliert allein`)), /*#__PURE__*/React.createElement("p", {
+  }, /*#__PURE__*/React.createElement("span", null, "Neue Runde"), /*#__PURE__*/React.createElement(SoloBadge, {
+    analysis: draftAnalysis,
+    nameOf: nameOf
+  })), /*#__PURE__*/React.createElement("p", {
     style: S.roundHint
-  }, "Tippt die Gewinner an und tragt die Punktzahl der Runde ein. Alle Gewinner bekommen diese Punkte, Verlierer bekommen 0."), /*#__PURE__*/React.createElement("div", {
-    style: S.roundList
-  }, game.playerIds.map(id => {
-    const isWinner = draft.winners.includes(id);
-    return /*#__PURE__*/React.createElement("div", {
-      key: id,
-      role: "button",
-      tabIndex: -1,
-      onClick: () => toggleWinner(id),
-      style: {
-        ...S.winnerRow,
-        ...(isWinner ? S.winnerRowActive : {})
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        ...S.winnerCheck,
-        ...(isWinner ? S.winnerCheckOn : {})
-      }
-    }, isWinner ? "✓" : ""), /*#__PURE__*/React.createElement("span", {
-      style: S.roundName
-    }, nameOf(id)), /*#__PURE__*/React.createElement("span", {
-      style: S.winnerState
-    }, isWinner ? "Sieg" : "Verloren"));
-  })), /*#__PURE__*/React.createElement("div", {
-    style: S.pointsRow
-  }, /*#__PURE__*/React.createElement("label", {
-    style: S.pointsLabel
-  }, "Punkte f\xFCr Gewinner"), /*#__PURE__*/React.createElement("input", {
-    style: S.pointsInput,
-    inputMode: "numeric",
-    placeholder: "z. B. 3",
-    value: draft.points,
-    onChange: e => setPoints(e.target.value)
-  })), error && /*#__PURE__*/React.createElement("div", {
+  }, "Tippt die Gewinner an und tragt die Punktzahl der Runde ein. Alle Gewinner bekommen diese Punkte, Verlierer bekommen 0."), /*#__PURE__*/React.createElement(RoundInputs, {
+    playerIds: game.playerIds,
+    nameOf: nameOf,
+    draft: draft,
+    setDraft: setDraft,
+    onChange: () => setError("")
+  }), error && /*#__PURE__*/React.createElement("div", {
     style: S.error
   }, error), /*#__PURE__*/React.createElement("div", {
     style: S.roundActions
   }, /*#__PURE__*/React.createElement("button", {
     style: S.btnPrimaryWide,
     onClick: addRound
-  }, "Runde eintragen")), game.rounds.length > 0 && /*#__PURE__*/React.createElement("button", {
-    style: S.btnTextGhost,
-    onClick: undoLastRound
-  }, "Letzte Runde r\xFCckg\xE4ngig")), /*#__PURE__*/React.createElement("div", {
+  }, "Runde eintragen"))), /*#__PURE__*/React.createElement(RoundList, {
+    game: game,
+    nameOf: nameOf,
+    update: update,
+    confirm: confirm
+  }), /*#__PURE__*/React.createElement("div", {
     style: S.gameFooter
   }, /*#__PURE__*/React.createElement("button", {
     style: S.btnDanger,
@@ -1146,6 +1651,104 @@ function ActiveGame({
     style: S.btnFinish,
     onClick: finishGame
   }, "Spiel abschlie\xDFen")));
+}
+
+// ---------- Zusammenfassung eines abgeschlossenen Spiels ----------
+function GameSummary({
+  data,
+  game,
+  update,
+  confirm,
+  onBack
+}) {
+  const nameOf = id => data.players.find(p => p.id === id)?.name || "—";
+  const [shareMsg, setShareMsg] = useState("");
+  const sum = computeGameSummary(game);
+  const hasRounds = game.rounds.length > 0;
+  const soloWins = sum.solos.filter(s => s.won).length;
+  const best = sum.bestRound;
+  const onShare = async () => {
+    const res = await shareText(buildShareText(game, nameOf));
+    setShareMsg({
+      geteilt: "",
+      abgebrochen: "",
+      kopiert: "In die Zwischenablage kopiert – jetzt z. B. in WhatsApp einfügen.",
+      fehler: "Teilen hat leider nicht geklappt."
+    }[res] || "");
+  };
+  return /*#__PURE__*/React.createElement("section", null, /*#__PURE__*/React.createElement("button", {
+    style: S.backBtn,
+    onClick: onBack
+  }, "\u2039 Zur\xFCck zu \u201ENeues Spiel\""), /*#__PURE__*/React.createElement("div", {
+    style: S.sectionHead
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: S.h2
+  }, "Spielergebnis"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      ...S.pill,
+      ...S.pillOk
+    }
+  }, formatDate(game.finishedAt, true))), /*#__PURE__*/React.createElement("div", {
+    style: S.summaryCard
+  }, !hasRounds && /*#__PURE__*/React.createElement("div", {
+    style: S.standingEmpty
+  }, "Ohne Runden \u2013 keine Wertung."), hasRounds && sum.ranked.map((id, i) => {
+    const place = sum.places[id];
+    return /*#__PURE__*/React.createElement("div", {
+      key: id,
+      style: {
+        ...S.summaryRow,
+        ...(i === 0 ? S.summaryRowTop : {})
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: S.summaryMedal
+    }, MEDALS[place] || `${place}.`), /*#__PURE__*/React.createElement("span", {
+      style: S.summaryName
+    }, nameOf(id)), /*#__PURE__*/React.createElement("span", {
+      style: S.summaryPts
+    }, sum.totals[id]));
+  })), hasRounds && /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.statGrid,
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement(StatCard, {
+    label: "Runden",
+    value: game.rounds.length
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    label: "Dauer",
+    value: formatDuration(sum.durationMin),
+    small: true
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    label: "Solos",
+    value: sum.solos.length,
+    sub: sum.solos.length > 0 ? `${soloWins} davon gewonnen` : null
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    label: "Beste Runde",
+    value: best ? `+${best.points}` : "—",
+    accent: true,
+    sub: best ? `${best.winners.map(nameOf).join(" & ")} · Runde ${best.number}${best.isSolo ? " · Solo" : ""}` : null
+  })), hasRounds && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    style: S.btnPrimaryWide,
+    onClick: onShare
+  }, "Ergebnis teilen"), shareMsg && /*#__PURE__*/React.createElement("p", {
+    style: {
+      ...S.hint,
+      textAlign: "center",
+      marginTop: 8
+    }
+  }, shareMsg), /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: 16
+    }
+  }), /*#__PURE__*/React.createElement(RoundList, {
+    game: game,
+    nameOf: nameOf,
+    update: update,
+    confirm: confirm,
+    collapsedCount: 0,
+    title: "Runden bearbeiten"
+  })));
 }
 
 // ============================================================
@@ -2855,6 +3458,126 @@ const S = {
   h2hEmpty: {
     fontSize: 15,
     color: C.line
+  },
+  // ---- Runden-Liste (bearbeiten/löschen) ----
+  roundLogRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "8px 0",
+    borderTop: `1px solid ${C.line}`
+  },
+  roundLogNr: {
+    width: 24,
+    fontSize: 13,
+    fontWeight: 700,
+    color: C.accent,
+    textAlign: "center",
+    flexShrink: 0
+  },
+  roundLogMain: {
+    flex: 1,
+    minWidth: 0
+  },
+  roundLogNames: {
+    fontSize: 14,
+    fontWeight: 500,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
+  },
+  roundLogSolo: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: C.accent,
+    marginTop: 2
+  },
+  roundLogPts: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: C.green,
+    fontVariantNumeric: "tabular-nums",
+    flexShrink: 0
+  },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    flexShrink: 0,
+    background: "transparent",
+    color: C.textDim,
+    border: `1px solid ${C.line}`,
+    borderRadius: 8,
+    fontSize: 15,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+    outline: "none"
+  },
+  // ---- Vergangene Spiele & Zusammenfassung ----
+  pastGameRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "11px 14px",
+    background: C.panel,
+    border: `1px solid ${C.line}`,
+    borderRadius: 10,
+    marginBottom: 8,
+    cursor: "pointer",
+    outline: "none",
+    WebkitTapHighlightColor: "transparent"
+  },
+  pastGameMain: {
+    flex: 1,
+    minWidth: 0
+  },
+  pastGameDate: {
+    fontSize: 12,
+    color: C.textDim,
+    marginBottom: 2
+  },
+  pastGameNames: {
+    fontSize: 14,
+    fontWeight: 500,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
+  },
+  summaryCard: {
+    background: C.panel,
+    border: `1px solid ${C.line}`,
+    borderRadius: 12,
+    padding: "6px 14px",
+    marginBottom: 16
+  },
+  summaryRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 0",
+    borderTop: `1px solid ${C.line}`
+  },
+  summaryRowTop: {
+    borderTop: "none"
+  },
+  summaryMedal: {
+    width: 28,
+    fontSize: 20,
+    fontWeight: 700,
+    color: C.textDim,
+    textAlign: "center"
+  },
+  summaryName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: 600
+  },
+  summaryPts: {
+    fontSize: 18,
+    fontWeight: 800,
+    fontVariantNumeric: "tabular-nums"
   },
   // ---- Testdaten-Bereich ----
   devBox: {
