@@ -246,6 +246,9 @@ function computePlayerStats(playerId, games) {
     // Längste Runden-Serien (spielübergreifend, chronologisch)
     longestRoundWinStreak: 0,
     longestRoundLossStreak: 0,
+    // Wann? { from: {at, round, gameIdx}, to: {...} } — bei Gleichstand die jüngste Serie
+    longestRoundWinStreakWhen: null,
+    longestRoundLossStreakWhen: null,
     // Solo
     soloPlayed: 0,
     soloWon: 0,
@@ -259,25 +262,46 @@ function computePlayerStats(playerId, games) {
   // 3 verlorene Runden am Ende von Spiel 4 + 3 am Anfang von Spiel 5 = 6 ergeben.
   let runWin = 0;
   let runLoss = 0;
-  chrono.forEach(game => {
+  let runStart = null; // Position der ersten Runde der laufenden Serie
+  chrono.forEach((game, gameIdx) => {
     const placements = gamePlacements(game);
     const place = placements[playerId];
     stats.placementSum += place;
     stats.placements.push(place);
     if (place === 1) stats.gameWins += 1;else stats.gameLosses += 1;
-    game.rounds.forEach(r => {
+    game.rounds.forEach((r, roundIdx) => {
       const info = analyzeRound(r, game.playerIds);
       const isWinner = info.winners.includes(playerId);
+      const pos = {
+        at: game.finishedAt,
+        round: roundIdx + 1,
+        gameIdx
+      };
       stats.roundsPlayed += 1;
       if (isWinner) stats.roundWins += 1;else stats.roundLosses += 1;
+      // >= statt >: bei gleich langen Serien gewinnt die jüngste
       if (isWinner) {
+        if (runWin === 0) runStart = pos;
         runWin += 1;
         runLoss = 0;
-        if (runWin > stats.longestRoundWinStreak) stats.longestRoundWinStreak = runWin;
+        if (runWin >= stats.longestRoundWinStreak) {
+          stats.longestRoundWinStreak = runWin;
+          stats.longestRoundWinStreakWhen = {
+            from: runStart,
+            to: pos
+          };
+        }
       } else {
+        if (runLoss === 0) runStart = pos;
         runLoss += 1;
         runWin = 0;
-        if (runLoss > stats.longestRoundLossStreak) stats.longestRoundLossStreak = runLoss;
+        if (runLoss >= stats.longestRoundLossStreak) {
+          stats.longestRoundLossStreak = runLoss;
+          stats.longestRoundLossStreakWhen = {
+            from: runStart,
+            to: pos
+          };
+        }
       }
       const pts = Number(r.scores?.[playerId]) || 0;
       stats.totalPoints += pts;
@@ -2457,6 +2481,27 @@ function StatsView({
   }, "\u203A")))));
 }
 
+// Kurzbeschreibung, wann eine Runden-Serie war.
+// Zweizeilig (Datum, dann Details), damit auf dem Handy nichts mitten umbricht:
+//   innerhalb eines Spiels:  "22.10.2026\nRunde 3–7"
+//   über mehrere Spiele:     "20.10. – 22.10.2026\nüber 2 Spiele"
+function describeStreakWhen(when) {
+  if (!when) return null;
+  const {
+    from,
+    to
+  } = when;
+  if (from.gameIdx === to.gameIdx) {
+    const rounds = from.round === to.round ? `Runde ${from.round}` : `Runde ${from.round}\u2013${to.round}`;
+    return `${formatDate(to.at)}\n${rounds}`;
+  }
+  const a = new Date(from.at);
+  const b = new Date(to.at);
+  const pad = n => String(n).padStart(2, "0");
+  const fromTxt = a.getFullYear() === b.getFullYear() ? `${pad(a.getDate())}.${pad(a.getMonth() + 1)}.` : formatDate(from.at);
+  return `${fromTxt} \u2013 ${formatDate(to.at)}\n\xFCber ${to.gameIdx - from.gameIdx + 1} Spiele`;
+}
+
 // ---------- Detailansicht eines Spielers ----------
 // Aufbau: Kopf (Spiele/Runden + aktuelle Serie), dann drei Gruppen mit je
 // gerader Kachelzahl: Spiele, Runden, Punkte. Keine doppelten Kennzahlen.
@@ -2530,12 +2575,14 @@ function PlayerStatDetail({
     label: "L\xE4ngste Siegesserie",
     value: stats.longestRoundWinStreak,
     valueColor: C.green,
-    sub: `${stats.longestRoundWinStreak === 1 ? "Runde" : "Runden"} am St\xFCck gewonnen`
+    sub: `${stats.longestRoundWinStreak === 1 ? "Runde" : "Runden"} am St\xFCck gewonnen`,
+    detail: describeStreakWhen(stats.longestRoundWinStreakWhen)
   }), /*#__PURE__*/React.createElement(StatCard, {
     label: "L\xE4ngste Pechstr\xE4hne",
     value: stats.longestRoundLossStreak,
     valueColor: C.red,
-    sub: `${stats.longestRoundLossStreak === 1 ? "Runde" : "Runden"} am St\xFCck verloren`
+    sub: `${stats.longestRoundLossStreak === 1 ? "Runde" : "Runden"} am St\xFCck verloren`,
+    detail: describeStreakWhen(stats.longestRoundLossStreakWhen)
   })), /*#__PURE__*/React.createElement("p", {
     style: {
       ...S.graphNote,
@@ -2610,7 +2657,8 @@ function StatCard({
   accent,
   small,
   wide,
-  valueColor
+  valueColor,
+  detail
 }) {
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2632,7 +2680,9 @@ function StatCard({
     }
   }, value), sub && /*#__PURE__*/React.createElement("div", {
     style: S.statCardSub
-  }, sub));
+  }, sub), detail && /*#__PURE__*/React.createElement("div", {
+    style: S.statCardDetail
+  }, detail));
 }
 
 // ============================================================
@@ -3315,6 +3365,17 @@ const S = {
   statCardValueSmall: {
     fontSize: 15,
     fontWeight: 700
+  },
+  statCardDetail: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: C.text,
+    marginTop: 6,
+    paddingTop: 6,
+    borderTop: `1px solid ${C.line}`,
+    fontVariantNumeric: "tabular-nums",
+    whiteSpace: "pre-line",
+    lineHeight: 1.45
   },
   statCardSub: {
     fontSize: 11,

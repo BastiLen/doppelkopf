@@ -65,6 +65,8 @@ wertet nur aus.
   Pechsträhne"): SPIELÜBERGREIFEND, d. h. die laufende Serie wird beim
   Spielwechsel nicht zurückgesetzt (Spiele chronologisch nach finishedAt,
   Runden in Erfassungsreihenfolge; Spiele ohne den Spieler zählen nicht).
+  Darunter steht, wann die Serie war (Datum + Runden bzw. Zeitraum + Anzahl
+  Spiele); bei gleich langen Serien wird die jüngste angezeigt.
 - Ranglisten: gleicher angezeigter Wert => geteilter Rang (1, 2, 2, 4)
 - Ranglisten (sortierbar) + Graphen (pro Spiel, All-Time mit
   Spielerauswahl und Modi: Punkte / Spiel-Siege / Platz-Punkte)
