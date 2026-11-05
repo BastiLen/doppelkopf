@@ -56,7 +56,12 @@ wertet nur aus.
 - Spielerverwaltung, neues Spiel starten (4 von 7–10 Spielern wählen)
 - Rundenerfassung mit automatischer Solo-Erkennung
 - Statistiken pro Spieler (Siege auf Runden- UND Spiel-Ebene getrennt,
-  Ø-Platzierung, Punkte, Streaks, Solo-Quote)
+  Ø-Platzierung + Platzierungs-Verteilung, Punkte inkl. Ø pro Runde und
+  Ø pro Sieg-Runde, Serie, Solo-Quote). Aufbau der Detailansicht: Kopf mit
+  Serie, dann Gruppen „Spiele", „Runden", „Punkte" mit je gerader
+  Kachelzahl — keine doppelten Kennzahlen (z. B. kein „Ø / 100 Runden" mehr,
+  keine „schlechteste Runde", da Verlierer immer 0 bekommen).
+- Ranglisten: gleicher angezeigter Wert => geteilter Rang (1, 2, 2, 4)
 - Ranglisten (sortierbar) + Graphen (pro Spiel, All-Time mit
   Spielerauswahl und Modi: Punkte / Spiel-Siege / Platz-Punkte)
 - Runden nachträglich bearbeiten/löschen (im laufenden Spiel und in

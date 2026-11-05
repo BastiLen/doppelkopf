@@ -301,10 +301,8 @@ function computePlayerStats(playerId, games) {
   stats.gameWinRate = stats.gamesPlayed > 0 ? stats.gameWins / stats.gamesPlayed : 0;
   stats.avgPlacement = stats.gamesPlayed > 0 ? stats.placementSum / stats.gamesPlayed : 0;
   stats.avgPointsPerGame = stats.gamesPlayed > 0 ? stats.totalPoints / stats.gamesPlayed : 0;
-  // Spiellängen-unabhängig: Punkte pro Runde, und daraus hochgerechnet auf
-  // 100 Runden (griffige Zahl, fairer Vergleich unabhängig von Spiellänge).
+  // Spiellängen-unabhängig: Punkte pro Runde (fairer Vergleich unabhängig von Spiellänge).
   stats.avgPointsPerRound = stats.roundsPlayed > 0 ? stats.totalPoints / stats.roundsPlayed : 0;
-  stats.pointsPer100Rounds = stats.avgPointsPerRound * 100;
   // Nur gewonnene Runden: wie viele Punkte bringt ein Rundensieg im Schnitt?
   stats.avgPointsPerWonRound = stats.roundWins > 0 ? stats.totalPoints / stats.roundWins : 0;
   stats.soloWinRate = stats.soloPlayed > 0 ? stats.soloWon / stats.soloPlayed : 0;
@@ -1824,30 +1822,38 @@ function RankingsView({
 function RankingTable({
   data
 }) {
+  // Reihenfolge nach Thema: Spiele → Runden → Punkte.
+  // key = gerundeter Anzeigewert; gleicher key => geteilter Rang.
+  const num1 = v => (Math.round(v * 10) / 10).toFixed(1);
+  const pctOf = v => `${Math.round(v * 100)}%`;
   const metrics = [{
     id: "gameWinRate",
-    label: "Win-Rate (Spiele)",
-    fmt: s => `${Math.round(s.gameWinRate * 100)}%`
-  }, {
-    id: "totalPoints",
-    label: "Gesamtpunkte",
-    fmt: s => s.totalPoints
-  }, {
-    id: "pointsPer100Rounds",
-    label: "Ø / 100 Runden",
-    fmt: s => Math.round(s.pointsPer100Rounds)
+    label: "Win-Rate Spiele",
+    fmt: s => pctOf(s.gameWinRate)
   }, {
     id: "gameWins",
     label: "Spiel-Siege",
     fmt: s => s.gameWins
   }, {
-    id: "roundWinRate",
-    label: "Win-Rate (Runden)",
-    fmt: s => `${Math.round(s.roundWinRate * 100)}%`
-  }, {
     id: "avgPlacement",
     label: "Ø Platzierung",
-    fmt: s => (Math.round(s.avgPlacement * 10) / 10).toFixed(1)
+    fmt: s => num1(s.avgPlacement)
+  }, {
+    id: "roundWinRate",
+    label: "Win-Rate Runden",
+    fmt: s => pctOf(s.roundWinRate)
+  }, {
+    id: "totalPoints",
+    label: "Gesamtpunkte",
+    fmt: s => s.totalPoints
+  }, {
+    id: "avgPointsPerRound",
+    label: "Ø pro Runde",
+    fmt: s => num1(s.avgPointsPerRound)
+  }, {
+    id: "avgPointsPerWonRound",
+    label: "Ø pro Sieg-Runde",
+    fmt: s => s.roundWins > 0 ? num1(s.avgPointsPerWonRound) : "—"
   }];
   const [metricId, setMetricId] = useState("gameWinRate");
   const metric = metrics.find(m => m.id === metricId);
@@ -1867,9 +1873,14 @@ function RankingTable({
   });
 
   // Rang (0-basiert) je Spieler-ID aus der sortierten Reihenfolge.
+  // slot = Position in der Liste (für die Animation), place = angezeigter Rang
+  // (gleicher angezeigter Wert => gleicher Rang, z. B. 1, 2, 2, 4).
   const rankById = {};
+  const placeById = {};
   sorted.forEach((r, i) => {
     rankById[r.player.id] = i;
+    const prev = sorted[i - 1];
+    placeById[r.player.id] = prev && metric.fmt(prev.stats) === metric.fmt(r.stats) ? placeById[prev.player.id] : i + 1;
   });
 
   // WICHTIG für die Animation: Die DOM-Reihenfolge bleibt STABIL (nach player.id),
@@ -1898,7 +1909,8 @@ function RankingTable({
     }
   }, stable.map(r => {
     const rank = rankById[r.player.id];
-    const isTop = rank === 0;
+    const place = placeById[r.player.id];
+    const isTop = place === 1;
     return /*#__PURE__*/React.createElement("div", {
       key: r.player.id,
       style: {
@@ -1911,16 +1923,16 @@ function RankingTable({
         ...S.rankPos,
         ...(isTop ? S.rankPosTop : {})
       }
-    }, rank + 1), /*#__PURE__*/React.createElement("span", {
+    }, place), /*#__PURE__*/React.createElement("span", {
       style: S.rankName
     }, r.player.name), /*#__PURE__*/React.createElement("span", {
       style: S.rankSub
-    }, r.stats.gamesPlayed, " Sp"), /*#__PURE__*/React.createElement("span", {
+    }, r.stats.gamesPlayed, r.stats.gamesPlayed === 1 ? " Spiel" : " Spiele"), /*#__PURE__*/React.createElement("span", {
       style: S.rankValue
     }, metric.fmt(r.stats)));
   })), /*#__PURE__*/React.createElement("p", {
     style: S.graphNote
-  }, "Sortiert nach: ", metric.label, ascending ? " (niedriger = besser)" : " (höher = besser)"));
+  }, "Sortiert nach ", metric.label, ascending ? " \xB7 niedriger ist besser" : " \xB7 höher ist besser"));
 }
 
 // ---------- Graph pro einzelnem Spiel ----------
@@ -1950,9 +1962,7 @@ function SingleGameGraph({
   });
   const gameLabel = g => {
     const names = g.playerIds.map(nameOf).join(", ");
-    const d = g.finishedAt ? new Date(g.finishedAt) : null;
-    const ds = d ? `${d.getDate()}.${d.getMonth() + 1}.` : "";
-    return `${ds} — ${names}`;
+    return `${formatDate(g.finishedAt, true)} — ${names}`;
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: S.selectLabel
@@ -2153,7 +2163,7 @@ function LineChart({
     textAnchor: "start",
     fontSize: "11",
     fill: "#9fb0c0"
-  }, xUnit, " 0"), /*#__PURE__*/React.createElement("text", {
+  }, "Start"), /*#__PURE__*/React.createElement("text", {
     x: W - padR,
     y: H - 10,
     textAnchor: "end",
@@ -2183,7 +2193,7 @@ function Legend({
 }) {
   return /*#__PURE__*/React.createElement("div", {
     style: S.legend
-  }, series.map(s => /*#__PURE__*/React.createElement("div", {
+  }, [...series].sort((a, b) => b.points[b.points.length - 1] - a.points[a.points.length - 1]).map(s => /*#__PURE__*/React.createElement("div", {
     key: s.id,
     style: S.legendItem
   }, /*#__PURE__*/React.createElement("span", {
@@ -2211,9 +2221,7 @@ function HeadToHeadView({
   const nameOf = id => data.players.find(p => p.id === id)?.name || "—";
   const gameLabel = g => {
     const names = g.playerIds.map(nameOf).join(", ");
-    const d = g.finishedAt ? new Date(g.finishedAt) : null;
-    const ds = d ? `${d.getDate()}.${d.getMonth() + 1}.` : "";
-    return `${ds} — ${names}`;
+    return `${formatDate(g.finishedAt, true)} — ${names}`;
   };
 
   // "overall" = Bilanz über alle Spiele, "game" = nur ein einzelnes Spiel
@@ -2416,16 +2424,29 @@ function StatsView({
       cursor: "pointer"
     },
     onClick: () => setSelectedId(player.id)
-  }, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
     style: S.statRowName
-  }, player.name), /*#__PURE__*/React.createElement("span", {
+  }, player.name), /*#__PURE__*/React.createElement("div", {
     style: S.statRowMeta
-  }, stats.gamesPlayed === 0 ? "keine Spiele" : `${stats.gameWins}S · ${stats.gamesPlayed} Sp · ${Math.round(stats.gameWinRate * 100)}%`), /*#__PURE__*/React.createElement("span", {
+  }, stats.gamesPlayed === 0 ? "noch keine Spiele" : `${stats.gameWins} von ${stats.gamesPlayed} Spiel${stats.gamesPlayed === 1 ? "" : "en"} gewonnen`)), stats.gamesPlayed > 0 && /*#__PURE__*/React.createElement("div", {
+    style: S.statRowValueWrap
+  }, /*#__PURE__*/React.createElement("div", {
+    style: S.statRowValue
+  }, Math.round(stats.gameWinRate * 100), "%"), /*#__PURE__*/React.createElement("div", {
+    style: S.statRowValueLabel
+  }, "Win-Rate")), /*#__PURE__*/React.createElement("span", {
     style: S.statRowArrow
   }, "\u203A")))));
 }
 
 // ---------- Detailansicht eines Spielers ----------
+// Aufbau: Kopf (Spiele/Runden + aktuelle Serie), dann drei Gruppen mit je
+// gerader Kachelzahl: Spiele, Runden, Punkte. Keine doppelten Kennzahlen.
 function PlayerStatDetail({
   player,
   stats,
@@ -2434,59 +2455,64 @@ function PlayerStatDetail({
   const pct = v => `${Math.round(v * 100)}%`;
   const num1 = v => (Math.round(v * 10) / 10).toFixed(1);
   const hasGames = stats.gamesPlayed > 0;
-  const streakLabel = () => {
-    if (stats.currentStreak === 0) return "—";
-    const n = Math.abs(stats.currentStreak);
-    return stats.currentStreak > 0 ? `${n} Siege in Folge` : `${n} Niederlagen in Folge`;
-  };
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  // Serie auf Spiel-Ebene: Sieg = Platz 1, sonst „ohne Sieg" (Platz 2 ist keine Niederlage)
+  const streak = stats.currentStreak;
+  const streakText = streak > 0 ? `${plural(streak, "Sieg", "Siege")} in Folge` : streak < 0 ? `${plural(-streak, "Spiel", "Spiele")} ohne Sieg` : null;
   return /*#__PURE__*/React.createElement("section", null, /*#__PURE__*/React.createElement("button", {
     style: S.backBtn,
     onClick: onBack
-  }, "\u2039 Zur\xFCck"), /*#__PURE__*/React.createElement("div", {
+  }, "‹ Zurück"), /*#__PURE__*/React.createElement("div", {
     style: S.statHeader
   }, /*#__PURE__*/React.createElement("div", {
     style: S.statAvatar
-  }, player.name.charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, player.name.charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
     style: S.statName
   }, player.name), /*#__PURE__*/React.createElement("div", {
     style: S.statSub
-  }, stats.gamesPlayed, " Spiel", stats.gamesPlayed === 1 ? "" : "e", " \xB7", " ", stats.roundsPlayed, " Runde", stats.roundsPlayed === 1 ? "" : "n"))), !hasGames && /*#__PURE__*/React.createElement("p", {
+  }, plural(stats.gamesPlayed, "Spiel", "Spiele"), " · ", plural(stats.roundsPlayed, "Runde", "Runden")), streakText && /*#__PURE__*/React.createElement("span", {
+    style: {
+      ...S.pill,
+      ...(streak > 0 ? S.pillOk : S.pillWarn),
+      display: "inline-block",
+      marginTop: 6
+    }
+  }, streakText))), !hasGames && /*#__PURE__*/React.createElement("p", {
     style: S.hint
   }, player.name, " hat noch kein abgeschlossenes Spiel gespielt."), hasGames && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: S.statGroupLabel
-  }, "Spiele (Platzierung am Spielende)"), /*#__PURE__*/React.createElement("div", {
+  }, "Spiele · Platzierung am Spielende"), /*#__PURE__*/React.createElement("div", {
     style: S.statGrid
   }, /*#__PURE__*/React.createElement(StatCard, {
-    label: "Spiel-Siege",
-    value: stats.gameWins,
-    sub: `Platz 1`
-  }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "Niederlagen",
-    value: stats.gameLosses
-  }), /*#__PURE__*/React.createElement(StatCard, {
     label: "Win-Rate",
     value: pct(stats.gameWinRate),
-    accent: true
+    accent: true,
+    sub: `${stats.gameWins} von ${plural(stats.gamesPlayed, "Spiel", "Spielen")} gewonnen`
   }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "\xD8 Platzierung",
-    value: num1(stats.avgPlacement)
+    label: "Ø Platzierung",
+    value: num1(stats.avgPlacement),
+    sub: "1.0 = immer Erster"
+  }), /*#__PURE__*/React.createElement(PlacementBars, {
+    placements: stats.placements
   })), /*#__PURE__*/React.createElement("div", {
     style: S.statGroupLabel
   }, "Runden"), /*#__PURE__*/React.createElement("div", {
     style: S.statGrid
   }, /*#__PURE__*/React.createElement(StatCard, {
-    label: "Runden-Siege",
-    value: stats.roundWins
-  }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "Niederlagen",
-    value: stats.roundLosses
-  }), /*#__PURE__*/React.createElement(StatCard, {
     label: "Win-Rate",
     value: pct(stats.roundWinRate),
-    accent: true
+    accent: true,
+    sub: `${stats.roundWins} von ${stats.roundsPlayed} gewonnen`
   }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "Runden ges.",
-    value: stats.roundsPlayed
+    label: "Solo-Quote",
+    value: stats.soloPlayed > 0 ? pct(stats.soloWinRate) : "—",
+    sub: stats.soloPlayed > 0 ? `${stats.soloWon} von ${plural(stats.soloPlayed, "Solo", "Solos")} gewonnen` : "noch kein Solo"
   })), /*#__PURE__*/React.createElement("div", {
     style: S.statGroupLabel
   }, "Punkte"), /*#__PURE__*/React.createElement("div", {
@@ -2494,57 +2520,75 @@ function PlayerStatDetail({
   }, /*#__PURE__*/React.createElement(StatCard, {
     label: "Gesamtpunkte",
     value: stats.totalPoints,
-    accent: true
+    accent: true,
+    wide: true,
+    sub: "über alle Spiele"
   }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "\xD8 pro Spiel",
-    value: num1(stats.avgPointsPerGame)
-  }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "\xD8 pro Runde",
+    label: "Ø pro Runde",
     value: num1(stats.avgPointsPerRound),
     sub: "inkl. verlorener Runden"
   }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "\xD8 pro Sieg-Runde",
-    value: stats.roundWins > 0 ? num1(stats.avgPointsPerWonRound) : "\u2014",
+    label: "Ø pro Sieg-Runde",
+    value: stats.roundWins > 0 ? num1(stats.avgPointsPerWonRound) : "—",
     sub: "nur gewonnene Runden"
   }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "\xD8 / 100 Runden",
-    value: Math.round(stats.pointsPer100Rounds),
-    accent: true
-  }), /*#__PURE__*/React.createElement(StatCard, {
     label: "Beste Runde",
-    value: stats.bestRound ?? "—"
+    value: stats.bestRound ?? "—",
+    sub: "meiste Punkte auf einmal"
   }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "Schlecht. Runde",
-    value: stats.worstRound ?? "—"
-  })), /*#__PURE__*/React.createElement("div", {
-    style: S.statGroupLabel
-  }, "Solo & Serie"), /*#__PURE__*/React.createElement("div", {
-    style: S.statGrid
-  }, /*#__PURE__*/React.createElement(StatCard, {
-    label: "Solos gespielt",
-    value: stats.soloPlayed
-  }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "Solos gewonnen",
-    value: stats.soloWon
-  }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "Solo-Quote",
-    value: stats.soloPlayed > 0 ? pct(stats.soloWinRate) : "—",
-    accent: true
-  }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "Aktuelle Serie",
-    value: streakLabel(),
-    small: true
+    label: "Ø pro Spiel",
+    value: num1(stats.avgPointsPerGame),
+    sub: "hängt von der Spiellänge ab"
   }))));
+}
+
+// Verteilung der Platzierungen (1.–4.) als kleine Balken, volle Breite.
+function PlacementBars({
+  placements
+}) {
+  const counts = [1, 2, 3, 4].map(p => placements.filter(x => x === p).length);
+  const max = Math.max(1, ...counts);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.statCard,
+      gridColumn: "1 / -1"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: S.statCardLabel
+  }, "Platzierungen"), /*#__PURE__*/React.createElement("div", {
+    style: S.placeBars
+  }, counts.map((n, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: S.placeCol
+  }, /*#__PURE__*/React.createElement("div", {
+    style: S.placeCount
+  }, n), /*#__PURE__*/React.createElement("div", {
+    style: S.placeTrack
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.placeFill,
+      height: `${n / max * 100}%`,
+      background: i === 0 ? C.accent : C.line
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: S.placeLabel
+  }, i + 1, ". Platz")))));
 }
 function StatCard({
   label,
   value,
   sub,
   accent,
-  small
+  small,
+  wide
 }) {
   return /*#__PURE__*/React.createElement("div", {
-    style: S.statCard
+    style: {
+      ...S.statCard,
+      ...(wide ? {
+        gridColumn: "1 / -1"
+      } : {})
+    }
   }, /*#__PURE__*/React.createElement("div", {
     style: S.statCardLabel
   }, label), /*#__PURE__*/React.createElement("div", {
@@ -3138,9 +3182,25 @@ const S = {
     fontWeight: 600
   },
   statRowMeta: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: C.textDim,
+    marginTop: 2,
     fontVariantNumeric: "tabular-nums"
+  },
+  statRowValueWrap: {
+    textAlign: "right",
+    flexShrink: 0
+  },
+  statRowValue: {
+    fontSize: 17,
+    fontWeight: 800,
+    fontVariantNumeric: "tabular-nums",
+    lineHeight: 1.1
+  },
+  statRowValueLabel: {
+    fontSize: 10.5,
+    color: C.textDim,
+    letterSpacing: 0.3
   },
   statRowArrow: {
     fontSize: 20,
@@ -3227,6 +3287,43 @@ const S = {
     fontSize: 11,
     color: C.textDim,
     marginTop: 4
+  },
+  // ---- Platzierungs-Balken (Spieler-Detail) ----
+  placeBars: {
+    display: "flex",
+    gap: 10,
+    marginTop: 4
+  },
+  placeCol: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 4
+  },
+  placeCount: {
+    fontSize: 16,
+    fontWeight: 800,
+    fontVariantNumeric: "tabular-nums"
+  },
+  placeTrack: {
+    width: "100%",
+    maxWidth: 44,
+    height: 48,
+    background: C.panel2,
+    borderRadius: 6,
+    display: "flex",
+    alignItems: "flex-end",
+    overflow: "hidden"
+  },
+  placeFill: {
+    width: "100%",
+    borderRadius: 6,
+    minHeight: 3
+  },
+  placeLabel: {
+    fontSize: 11,
+    color: C.textDim
   },
   // ---- Phase 4: Ranglisten & Graphen ----
   subNav: {
@@ -3444,7 +3541,9 @@ const S = {
   h2hWin: {
     fontSize: 16,
     fontWeight: 800,
-    color: C.green
+    color: C.green,
+    minWidth: 26,
+    textAlign: "right"
   },
   h2hSep: {
     fontSize: 14,
@@ -3453,13 +3552,15 @@ const S = {
   h2hLoss: {
     fontSize: 16,
     fontWeight: 800,
-    color: C.red
+    color: C.red,
+    minWidth: 26,
+    textAlign: "left"
   },
   h2hPct: {
     fontSize: 11,
     color: C.textDim,
-    marginLeft: 4,
-    minWidth: 30,
+    marginLeft: 2,
+    minWidth: 34,
     textAlign: "right"
   },
   h2hEmpty: {
