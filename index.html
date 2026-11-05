@@ -243,8 +243,9 @@ function computePlayerStats(playerId, games) {
     totalPoints: 0,
     bestRound: null,
     // höchste Punktzahl in einer einzelnen Runde
-    worstRound: null,
-    // niedrigste Punktzahl in einer einzelnen Runde
+    // Längste Runden-Serien (spielübergreifend, chronologisch)
+    longestRoundWinStreak: 0,
+    longestRoundLossStreak: 0,
     // Solo
     soloPlayed: 0,
     soloWon: 0,
@@ -254,6 +255,10 @@ function computePlayerStats(playerId, games) {
 
   // Chronologisch für Streak
   const chrono = [...finished].sort((a, b) => (a.finishedAt || 0) - (b.finishedAt || 0));
+  // Laufende Runden-Serien: werden NICHT pro Spiel zurückgesetzt, damit z. B.
+  // 3 verlorene Runden am Ende von Spiel 4 + 3 am Anfang von Spiel 5 = 6 ergeben.
+  let runWin = 0;
+  let runLoss = 0;
   chrono.forEach(game => {
     const placements = gamePlacements(game);
     const place = placements[playerId];
@@ -265,10 +270,18 @@ function computePlayerStats(playerId, games) {
       const isWinner = info.winners.includes(playerId);
       stats.roundsPlayed += 1;
       if (isWinner) stats.roundWins += 1;else stats.roundLosses += 1;
+      if (isWinner) {
+        runWin += 1;
+        runLoss = 0;
+        if (runWin > stats.longestRoundWinStreak) stats.longestRoundWinStreak = runWin;
+      } else {
+        runLoss += 1;
+        runWin = 0;
+        if (runLoss > stats.longestRoundLossStreak) stats.longestRoundLossStreak = runLoss;
+      }
       const pts = Number(r.scores?.[playerId]) || 0;
       stats.totalPoints += pts;
       if (stats.bestRound === null || pts > stats.bestRound) stats.bestRound = pts;
-      if (stats.worstRound === null || pts < stats.worstRound) stats.worstRound = pts;
 
       // Solo: nur zählen, wenn dieser Spieler der Solist war
       if (info.isSolo && info.soloPlayerId === playerId) {
@@ -2513,7 +2526,23 @@ function PlayerStatDetail({
     label: "Solo-Quote",
     value: stats.soloPlayed > 0 ? pct(stats.soloWinRate) : "—",
     sub: stats.soloPlayed > 0 ? `${stats.soloWon} von ${plural(stats.soloPlayed, "Solo", "Solos")} gewonnen` : "noch kein Solo"
-  })), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    label: "L\xE4ngste Siegesserie",
+    value: stats.longestRoundWinStreak,
+    valueColor: C.green,
+    sub: `${stats.longestRoundWinStreak === 1 ? "Runde" : "Runden"} am St\xFCck gewonnen`
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    label: "L\xE4ngste Pechstr\xE4hne",
+    value: stats.longestRoundLossStreak,
+    valueColor: C.red,
+    sub: `${stats.longestRoundLossStreak === 1 ? "Runde" : "Runden"} am St\xFCck verloren`
+  })), /*#__PURE__*/React.createElement("p", {
+    style: {
+      ...S.graphNote,
+      marginTop: 8,
+      textAlign: "left"
+    }
+  }, "Serien z\xE4hlen spiel\xFCbergreifend: Wer ein Spiel mit 3 verlorenen Runden beendet und das n\xE4chste mit 3 verlorenen beginnt, hat 6 in Folge."), /*#__PURE__*/React.createElement("div", {
     style: S.statGroupLabel
   }, "Punkte"), /*#__PURE__*/React.createElement("div", {
     style: S.statGrid
@@ -2580,7 +2609,8 @@ function StatCard({
   sub,
   accent,
   small,
-  wide
+  wide,
+  valueColor
 }) {
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2595,7 +2625,10 @@ function StatCard({
     style: {
       ...S.statCardValue,
       ...(accent ? S.statCardValueAccent : {}),
-      ...(small ? S.statCardValueSmall : {})
+      ...(small ? S.statCardValueSmall : {}),
+      ...(valueColor ? {
+        color: valueColor
+      } : {})
     }
   }, value), sub && /*#__PURE__*/React.createElement("div", {
     style: S.statCardSub

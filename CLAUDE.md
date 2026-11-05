@@ -61,6 +61,10 @@ wertet nur aus.
   Serie, dann Gruppen „Spiele", „Runden", „Punkte" mit je gerader
   Kachelzahl — keine doppelten Kennzahlen (z. B. kein „Ø / 100 Runden" mehr,
   keine „schlechteste Runde", da Verlierer immer 0 bekommen).
+- Längste Runden-Serien pro Spieler („Längste Siegesserie" / „Längste
+  Pechsträhne"): SPIELÜBERGREIFEND, d. h. die laufende Serie wird beim
+  Spielwechsel nicht zurückgesetzt (Spiele chronologisch nach finishedAt,
+  Runden in Erfassungsreihenfolge; Spiele ohne den Spieler zählen nicht).
 - Ranglisten: gleicher angezeigter Wert => geteilter Rang (1, 2, 2, 4)
 - Ranglisten (sortierbar) + Graphen (pro Spiel, All-Time mit
   Spielerauswahl und Modi: Punkte / Spiel-Siege / Platz-Punkte)
