@@ -93,7 +93,9 @@ wertet nur aus.
   „gegen" (gegnerische Seiten) und „mit" (gleiches Team) als gewonnene :
   verlorene Runden, Quote farbig (>50 % grün, <50 % rot). Bei „Alle Spiele"
   oben „Auffälligkeiten": Lieblings-/Pechpartner, Lieblings-/Angstgegner
-  (erst ab H2H_MIN_ROUNDS = 5 gemeinsamen Runden).
+  (erst ab H2H_MIN_ROUNDS = 5 gemeinsamen Runden). Bei „Einzelnes Spiel"
+  zeigt eine Karte „Endstand" das Ergebnis des gewählten Spiels (gewählter
+  Spieler hervorgehoben, Runden/Solos/beste Runde darunter).
 
 ## Bekannte Learnings / Stolpersteine
 

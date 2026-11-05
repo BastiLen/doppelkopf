@@ -2436,14 +2436,18 @@ function HeadToHeadView({
       ...S.subNavBtn,
       ...(viewMode === m.id ? S.subNavBtnActive : {})
     }
-  }, m.label))), viewMode === "game" && /*#__PURE__*/React.createElement("select", {
+  }, m.label))), viewMode === "game" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("select", {
     style: S.select,
     value: selectedGame.id,
     onChange: e => setGameId(e.target.value)
   }, focusGames.map(g => /*#__PURE__*/React.createElement("option", {
     key: g.id,
     value: g.id
-  }, gameLabel(g)))), others.length === 0 ? /*#__PURE__*/React.createElement("p", {
+  }, gameLabel(g)))), /*#__PURE__*/React.createElement(GameRecap, {
+    game: selectedGame,
+    focusId: focus.id,
+    nameOf: nameOf
+  })), others.length === 0 ? /*#__PURE__*/React.createElement("p", {
     style: S.hint
   }, viewMode === "game" ? `Für ${focus.name} gibt es in diesem Spiel keine gemeinsamen Runden mit anderen Spielern.` : `Für ${focus.name} gibt es noch keine gemeinsamen Runden mit anderen Spielern.`) : /*#__PURE__*/React.createElement(React.Fragment, null, viewMode === "overall" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2510,6 +2514,50 @@ function H2HRow({
   }, other.name), /*#__PURE__*/React.createElement("div", {
     style: S.h2hBalances
   }, cell(other.vsWins, other.vsLosses, other.vsTotal, other.vsRate), cell(other.withWins, other.withLosses, other.withTotal, other.withRate)));
+}
+
+// Kurzer Rückblick auf ein Spiel: Endstand mit Platzierung, Eckdaten darunter.
+// Der gewählte Spieler ist hervorgehoben.
+function GameRecap({
+  game,
+  focusId,
+  nameOf
+}) {
+  const sum = computeGameSummary(game);
+  const soloTxt = sum.solos.length === 0 ? "keine Solos" : sum.solos.length === 1 ? "1 Solo" : `${sum.solos.length} Solos`;
+  return /*#__PURE__*/React.createElement("div", {
+    style: S.recapCard
+  }, /*#__PURE__*/React.createElement("div", {
+    style: S.standingHead
+  }, "Endstand"), game.rounds.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: S.standingEmpty
+  }, "Ohne Runden – keine Wertung.") : sum.ranked.map((id, i) => {
+    const place = sum.places[id];
+    const isFocus = id === focusId;
+    return /*#__PURE__*/React.createElement("div", {
+      key: id,
+      style: {
+        ...S.recapRow,
+        ...(i === 0 ? {
+          borderTop: "none"
+        } : {}),
+        ...(isFocus ? S.recapRowFocus : {})
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: S.recapMedal
+    }, MEDALS[place] || `${place}.`), /*#__PURE__*/React.createElement("span", {
+      style: {
+        ...S.recapName,
+        ...(isFocus ? {
+          color: C.accent
+        } : {})
+      }
+    }, nameOf(id)), /*#__PURE__*/React.createElement("span", {
+      style: S.recapPts
+    }, sum.totals[id]));
+  }), game.rounds.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: S.recapMeta
+  }, game.rounds.length, " Runden · ", soloTxt, sum.bestRound && sum.bestRound.points > 0 ? ` · beste Runde +${sum.bestRound.points} (${sum.bestRound.winners.map(nameOf).join(" & ")})` : ""));
 }
 
 // ============================================================
@@ -3493,6 +3541,49 @@ const S = {
     fontSize: 11,
     color: C.textDim,
     marginTop: 4
+  },
+  // ---- Duelle: Rückblick auf ein Spiel ----
+  recapCard: {
+    background: C.panel,
+    border: `1px solid ${C.line}`,
+    borderRadius: 12,
+    padding: "12px 14px",
+    marginBottom: 18
+  },
+  recapRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "6px 8px",
+    margin: "0 -8px",
+    borderTop: `1px solid ${C.line}`,
+    borderRadius: 6
+  },
+  recapRowFocus: {
+    background: "rgba(224,182,79,0.10)"
+  },
+  recapMedal: {
+    width: 26,
+    fontSize: 16,
+    fontWeight: 700,
+    color: C.textDim,
+    textAlign: "center"
+  },
+  recapName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: 600
+  },
+  recapPts: {
+    fontSize: 16,
+    fontWeight: 800,
+    fontVariantNumeric: "tabular-nums"
+  },
+  recapMeta: {
+    fontSize: 12,
+    color: C.textDim,
+    marginTop: 8,
+    lineHeight: 1.5
   },
   // ---- Platzierungs-Balken (Spieler-Detail) ----
   placeBars: {
