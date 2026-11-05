@@ -68,6 +68,14 @@ wertet nur aus.
   Darunter steht, wann die Serie war (Datum + Runden bzw. Zeitraum + Anzahl
   Spiele); bei gleich langen Serien wird die jüngste angezeigt.
 - Ranglisten: gleicher angezeigter Wert => geteilter Rang (1, 2, 2, 4)
+- **Gewichtete Kennzahlen (Bayes-Durchschnitt):** Damit wenige Spiele nicht
+  gleich viel zählen wie viele, startet jeder rechnerisch mit
+  WEIGHT_GAMES = 5 ausgedachten Durchschnittsspielen:
+  (Summe + 5 × Mittelwert) / (Spiele + 5). Mittelwerte: 2,5 Platz-Punkte
+  (1. = 4 … 4. = 1) bzw. 25 % Win-Rate. Genutzt für „Platz-Punkte gewichtet"
+  (Standard-Sortierung der Rangliste), „Win-Rate gewichtet" und die
+  Gesamtverlauf-Ansicht „Platz-Punkte gewichtet (Ø)". Runden-Win-Rate wird
+  bewusst NICHT gewichtet (100+ Runden pro Spieler, Zufall spielt kaum eine Rolle).
 - Ranglisten (Kennzahl per gruppiertem Dropdown „Sortieren nach";
   Zusatzspalte zeigt Spiele bzw. Runden passend zur Kennzahl) + Graphen
   „Spielverlauf" (ein Spiel) und „Gesamtverlauf" (Spielerauswahl, vorbelegt
