@@ -68,8 +68,11 @@ wertet nur aus.
   Darunter steht, wann die Serie war (Datum + Runden bzw. Zeitraum + Anzahl
   Spiele); bei gleich langen Serien wird die jüngste angezeigt.
 - Ranglisten: gleicher angezeigter Wert => geteilter Rang (1, 2, 2, 4)
-- Ranglisten (sortierbar) + Graphen (pro Spiel, All-Time mit
-  Spielerauswahl und Modi: Punkte / Spiel-Siege / Platz-Punkte)
+- Ranglisten (Kennzahl per gruppiertem Dropdown „Sortieren nach";
+  Zusatzspalte zeigt Spiele bzw. Runden passend zur Kennzahl) + Graphen
+  „Spielverlauf" (ein Spiel) und „Gesamtverlauf" (Spielerauswahl, vorbelegt
+  mit den 4 Spielern mit den meisten Spielen; Modi Punkte / Spiel-Siege /
+  Platz-Punkte). X-Achse mit Zwischenmarken.
 - Runden nachträglich bearbeiten/löschen (im laufenden Spiel und in
   abgeschlossenen Spielen)
 - Zusammenfassung nach Spielende (Platzierungen, Runden, Dauer, Solos, beste
@@ -77,9 +80,12 @@ wertet nur aus.
   „Vergangene Spiele" im Spiel-Tab, von der aus jedes Ergebnis erreichbar ist
 - Datensicherung im Spieler-Tab: Backup als JSON herunterladen / einspielen
   (Einspielen ersetzt die Daten auf allen Geräten)
-- „Duelle" (Head-to-Head): „gegen" (gegnerische Seiten) und „mit"
-  (gleiche Seite/Team), sowohl als Gesamt-Bilanz über alle Spiele als auch
-  „Pro Spiel" für ein einzelnes Spiel gefiltert
+- „Duelle" (Head-to-Head): erst Spieler wählen („Bilanz von"), dann
+  „Alle Spiele" oder „Einzelnes Spiel" (nur Spiele dieses Spielers).
+  „gegen" (gegnerische Seiten) und „mit" (gleiches Team) als gewonnene :
+  verlorene Runden, Quote farbig (>50 % grün, <50 % rot). Bei „Alle Spiele"
+  oben „Auffälligkeiten": Lieblings-/Pechpartner, Lieblings-/Angstgegner
+  (erst ab H2H_MIN_ROUNDS = 5 gemeinsamen Runden).
 
 ## Bekannte Learnings / Stolpersteine
 

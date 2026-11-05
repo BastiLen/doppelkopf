@@ -1830,10 +1830,10 @@ function RankingsView({
     label: "Rangliste"
   }, {
     id: "spielgraph",
-    label: "Pro Spiel"
+    label: "Spielverlauf"
   }, {
     id: "alltime",
-    label: "All-Time"
+    label: "Gesamtverlauf"
   }].map(it => /*#__PURE__*/React.createElement("button", {
     key: it.id,
     onClick: e => {
@@ -1865,31 +1865,45 @@ function RankingTable({
   const pctOf = v => `${Math.round(v * 100)}%`;
   const metrics = [{
     id: "gameWinRate",
-    label: "Win-Rate Spiele",
+    label: "Win-Rate",
+    group: "Spiele",
+    unit: "games",
     fmt: s => pctOf(s.gameWinRate)
   }, {
     id: "gameWins",
     label: "Spiel-Siege",
+    group: "Spiele",
+    unit: "games",
     fmt: s => s.gameWins
   }, {
     id: "avgPlacement",
     label: "Ø Platzierung",
+    group: "Spiele",
+    unit: "games",
     fmt: s => num1(s.avgPlacement)
   }, {
     id: "roundWinRate",
-    label: "Win-Rate Runden",
+    label: "Win-Rate",
+    group: "Runden",
+    unit: "rounds",
     fmt: s => pctOf(s.roundWinRate)
   }, {
     id: "totalPoints",
     label: "Gesamtpunkte",
+    group: "Punkte",
+    unit: "games",
     fmt: s => s.totalPoints
   }, {
     id: "avgPointsPerRound",
     label: "Ø pro Runde",
+    group: "Punkte",
+    unit: "rounds",
     fmt: s => num1(s.avgPointsPerRound)
   }, {
     id: "avgPointsPerWonRound",
     label: "Ø pro Sieg-Runde",
+    group: "Punkte",
+    unit: "rounds",
     fmt: s => s.roundWins > 0 ? num1(s.avgPointsPerWonRound) : "—"
   }];
   const [metricId, setMetricId] = useState("gameWinRate");
@@ -1926,18 +1940,20 @@ function RankingTable({
   const stable = [...rows].sort((a, b) => a.player.id < b.player.id ? -1 : 1);
   const ROW_H = 56; // Zeilenhöhe inkl. Abstand (muss zu S.rankRowAnim passen)
   const containerHeight = stable.length * ROW_H;
-  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: S.metricChips
-  }, metrics.map(m => /*#__PURE__*/React.createElement("div", {
+  const groups = [...new Set(metrics.map(m => m.group))];
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: S.selectLabel
+  }, "Sortieren nach"), /*#__PURE__*/React.createElement("select", {
+    style: S.select,
+    value: metricId,
+    onChange: e => setMetricId(e.target.value)
+  }, groups.map(g => /*#__PURE__*/React.createElement("optgroup", {
+    key: g,
+    label: g
+  }, metrics.filter(m => m.group === g).map(m => /*#__PURE__*/React.createElement("option", {
     key: m.id,
-    role: "button",
-    tabIndex: -1,
-    onClick: () => setMetricId(m.id),
-    style: {
-      ...S.metricChip,
-      ...(metricId === m.id ? S.metricChipActive : {})
-    }
-  }, m.label))), stable.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    value: m.id
+  }, m.label, m.label === "Win-Rate" ? ` (${g})` : ""))))), stable.length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: S.emptyState
   }, "Noch keine Spieler mit abgeschlossenen Spielen.") : /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1964,12 +1980,12 @@ function RankingTable({
       style: S.rankName
     }, r.player.name), /*#__PURE__*/React.createElement("span", {
       style: S.rankSub
-    }, r.stats.gamesPlayed, r.stats.gamesPlayed === 1 ? " Spiel" : " Spiele"), /*#__PURE__*/React.createElement("span", {
+    }, metric.unit === "rounds" ? `${r.stats.roundsPlayed} ${r.stats.roundsPlayed === 1 ? "Runde" : "Runden"}` : `${r.stats.gamesPlayed} ${r.stats.gamesPlayed === 1 ? "Spiel" : "Spiele"}`), /*#__PURE__*/React.createElement("span", {
       style: S.rankValue
     }, metric.fmt(r.stats)));
   })), /*#__PURE__*/React.createElement("p", {
     style: S.graphNote
-  }, "Sortiert nach ", metric.label, ascending ? " \xB7 niedriger ist besser" : " \xB7 höher ist besser"));
+  }, "Sortiert nach ", metric.label, metric.label === "Win-Rate" ? ` (${metric.group})` : "", ascending ? " \xB7 niedriger ist besser" : " \xB7 höher ist besser"));
 }
 
 // ---------- Graph pro einzelnem Spiel ----------
@@ -2028,7 +2044,8 @@ function AllTimeGraph({
 
   // Spieler mit mind. 1 abgeschlossenen Spiel
   const eligible = data.players.filter(p => finished.some(g => g.playerIds.includes(p.id)));
-  const [selected, setSelected] = useState(() => eligible.slice(0, 4).map(p => p.id));
+  const gamesOf = id => finished.filter(g => g.playerIds.includes(id)).length;
+  const [selected, setSelected] = useState(() => [...eligible].sort((a, b) => gamesOf(b.id) - gamesOf(a.id)).slice(0, 4).map(p => p.id));
 
   // Anzeige-Modus des All-Time-Graphen
   const [mode, setMode] = useState("points"); // points | wins | placement
@@ -2131,10 +2148,12 @@ function LineChart({
 }) {
   const W = 600;
   const H = 320;
-  const padL = 44;
+  const padL = 48;
   const padR = 16;
   const padT = 16;
-  const padB = 34;
+  const padB = 40;
+  // Das SVG wird auf dem Handy auf ~55 % verkleinert -> Schrift entsprechend größer
+  const AXIS_FONT = 18;
 
   // Max-Wert für Y-Skala
   let maxY = 0;
@@ -2167,6 +2186,15 @@ function LineChart({
   if (yTicks.length === 0) {
     yTicks.push(minY, maxY);
   }
+
+  // X-Achse: Start, Ende und bis zu ~4 runde Zwischenmarken (1, 2, 5, 10, 20 …).
+  // Marken zu nah am Ende entfallen, damit sich die Beschriftungen nicht überlappen.
+  const xStep = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500].find(st => xLabelCount / st <= 5) || 1000;
+  const xTicks = [0];
+  for (let t = xStep; t < xLabelCount; t += xStep) {
+    if (xLabelCount - t >= xStep * 0.6) xTicks.push(t);
+  }
+  if (xLabelCount > 0) xTicks.push(xLabelCount);
   return /*#__PURE__*/React.createElement("div", {
     style: S.chartWrap
   }, /*#__PURE__*/React.createElement("svg", {
@@ -2191,22 +2219,17 @@ function LineChart({
       x: padL - 8,
       y: y + 4,
       textAnchor: "end",
-      fontSize: "11",
+      fontSize: AXIS_FONT,
       fill: "#9fb0c0"
     }, Math.round(val)));
-  }), /*#__PURE__*/React.createElement("text", {
-    x: padL,
-    y: H - 10,
-    textAnchor: "start",
-    fontSize: "11",
+  }), xTicks.map(t => /*#__PURE__*/React.createElement("text", {
+    key: t,
+    x: xAt(t),
+    y: H - 8,
+    textAnchor: t === 0 ? "start" : t === xLabelCount ? "end" : "middle",
+    fontSize: AXIS_FONT,
     fill: "#9fb0c0"
-  }, "Start"), /*#__PURE__*/React.createElement("text", {
-    x: W - padR,
-    y: H - 10,
-    textAnchor: "end",
-    fontSize: "11",
-    fill: "#9fb0c0"
-  }, xUnit, " ", xLabelCount), series.map(s => {
+  }, t === 0 ? "Start" : t === xLabelCount ? `${xUnit} ${t}` : t)), series.map(s => {
     const d = s.points.map((v, i) => `${i === 0 ? "M" : "L"} ${xAt(i)} ${yAt(v)}`).join(" ");
     return /*#__PURE__*/React.createElement("g", {
       key: s.id
@@ -2248,6 +2271,12 @@ function Legend({
 // ============================================================
 // Head-to-Head / Duelle (Phase 5)
 // ============================================================
+// Mindestanzahl gemeinsamer Runden, damit jemand als Lieblingspartner,
+// Angstgegner usw. hervorgehoben wird (sonst entscheiden Zufallstreffer).
+const H2H_MIN_ROUNDS = 5;
+
+// Win-Rate färben: über 50 % grün, unter 50 % rot, genau 50 % neutral.
+const rateColor = rate => rate > 50 ? C.green : rate < 50 ? C.red : C.textDim;
 function HeadToHeadView({
   data
 }) {
@@ -2270,76 +2299,127 @@ function HeadToHeadView({
       style: S.placeholder
     }, /*#__PURE__*/React.createElement("div", {
       style: S.placeholderMark
-    }, "\u2660"), /*#__PURE__*/React.createElement("h2", {
+    }, "♠"), /*#__PURE__*/React.createElement("h2", {
       style: S.h2
     }, "Duelle"), /*#__PURE__*/React.createElement("p", {
       style: S.placeholderText
-    }, "Noch keine abgeschlossenen Spiele. Sobald ihr Spiele beendet, erscheinen hier die Bilanzen \u2014 gegen jeden und mit jedem."));
+    }, "Noch keine abgeschlossenen Spiele. Sobald ihr Spiele beendet, erscheinen hier die Bilanzen — gegen jeden und mit jedem."));
   }
-  const selectedGame = finishedGames.find(g => g.id === gameId) || finishedGames[0];
 
-  // Im "Pro Spiel"-Modus sind nur die 4 Spieler dieses Spiels wählbar,
-  // im "Gesamt"-Modus alle Spieler mit mind. 1 abgeschlossenen Spiel.
-  const focusPool = viewMode === "game" ? data.players.filter(p => selectedGame.playerIds.includes(p.id)) : eligible;
-  const focus = focusPool.find(p => p.id === focusId) || focusPool[0];
+  // Im "Pro Spiel"-Modus nur Spiele, in denen der gewählte Spieler mitspielte.
+  const focus = eligible.find(p => p.id === focusId) || eligible[0];
+  const focusGames = finishedGames.filter(g => g.playerIds.includes(focus.id));
+  const selectedGame = focusGames.find(g => g.id === gameId) || focusGames[0];
   const h2h = viewMode === "game" ? computeHeadToHeadForGame(focus.id, selectedGame) : computeHeadToHead(focus.id, data);
 
   // Alle anderen Spieler, mit denen es gemeinsame Runden gab
-  const others = Object.keys(h2h).map(id => ({
-    id,
-    name: nameOf(id),
-    ...h2h[id]
-  })).filter(o => o.vsWins + o.vsLosses + o.withWins + o.withLosses > 0);
-
+  const others = Object.keys(h2h).map(id => {
+    const o = h2h[id];
+    const vsTotal = o.vsWins + o.vsLosses;
+    const withTotal = o.withWins + o.withLosses;
+    return {
+      id,
+      name: nameOf(id),
+      ...o,
+      vsTotal,
+      withTotal,
+      vsRate: vsTotal > 0 ? Math.round(o.vsWins / vsTotal * 100) : null,
+      withRate: withTotal > 0 ? Math.round(o.withWins / withTotal * 100) : null
+    };
+  }).filter(o => o.vsTotal + o.withTotal > 0)
   // Sortierung: nach Anzahl gemeinsamer Runden (meiste zuerst)
-  others.sort((a, b) => b.vsWins + b.vsLosses + b.withWins + b.withLosses - (a.vsWins + a.vsLosses + a.withWins + a.withLosses));
+  .sort((a, b) => b.vsTotal + b.withTotal - (a.vsTotal + a.withTotal));
+
+  // Highlights: bester/schlechtester Partner bzw. Gegner (mit Mindest-Rundenzahl).
+  // Bei gleicher Quote zählt die größere Rundenzahl.
+  const pick = (kind, best) => {
+    const total = kind === "vs" ? "vsTotal" : "withTotal";
+    const rate = kind === "vs" ? "vsRate" : "withRate";
+    const pool = others.filter(o => o[total] >= H2H_MIN_ROUNDS);
+    if (pool.length === 0) return null;
+    return [...pool].sort((a, b) => (best ? b[rate] - a[rate] : a[rate] - b[rate]) || b[total] - a[total])[0];
+  };
+  const highlight = (label, o, kind) => {
+    if (!o) return /*#__PURE__*/React.createElement(StatCard, {
+      label: label,
+      value: "—",
+      small: true,
+      sub: "zu wenige Runden"
+    });
+    const w = kind === "vs" ? o.vsWins : o.withWins;
+    const l = kind === "vs" ? o.vsLosses : o.withLosses;
+    const rate = kind === "vs" ? o.vsRate : o.withRate;
+    return /*#__PURE__*/React.createElement(StatCard, {
+      label: label,
+      value: o.name,
+      small: true,
+      sub: `${w} : ${l} Runden · ${rate} %`
+    });
+  };
   return /*#__PURE__*/React.createElement("section", null, /*#__PURE__*/React.createElement("div", {
     style: S.sectionHead
   }, /*#__PURE__*/React.createElement("h2", {
     style: S.h2
   }, "Duelle")), /*#__PURE__*/React.createElement("label", {
     style: S.selectLabel
-  }, "Ansicht"), /*#__PURE__*/React.createElement("div", {
-    style: S.subNav
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: e => {
-      setViewMode("overall");
-      e.currentTarget.blur();
-    },
-    style: {
-      ...S.subNavBtn,
-      ...(viewMode === "overall" ? S.subNavBtnActive : {})
-    }
-  }, "Gesamt"), /*#__PURE__*/React.createElement("button", {
-    onClick: e => {
-      setViewMode("game");
-      e.currentTarget.blur();
-    },
-    style: {
-      ...S.subNavBtn,
-      ...(viewMode === "game" ? S.subNavBtnActive : {})
-    }
-  }, "Pro Spiel")), viewMode === "game" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
-    style: S.selectLabel
-  }, "Spiel ausw\xE4hlen"), /*#__PURE__*/React.createElement("select", {
-    style: S.select,
-    value: selectedGame.id,
-    onChange: e => setGameId(e.target.value)
-  }, finishedGames.map(g => /*#__PURE__*/React.createElement("option", {
-    key: g.id,
-    value: g.id
-  }, gameLabel(g))))), /*#__PURE__*/React.createElement("label", {
-    style: S.selectLabel
-  }, "Spieler"), /*#__PURE__*/React.createElement("select", {
+  }, "Bilanz von"), /*#__PURE__*/React.createElement("select", {
     style: S.select,
     value: focus.id,
     onChange: e => setFocusId(e.target.value)
-  }, focusPool.map(p => /*#__PURE__*/React.createElement("option", {
+  }, eligible.map(p => /*#__PURE__*/React.createElement("option", {
     key: p.id,
     value: p.id
-  }, p.name))), others.length === 0 ? /*#__PURE__*/React.createElement("p", {
+  }, p.name))), /*#__PURE__*/React.createElement("div", {
+    style: S.subNav
+  }, [{
+    id: "overall",
+    label: "Alle Spiele"
+  }, {
+    id: "game",
+    label: "Einzelnes Spiel"
+  }].map(m => /*#__PURE__*/React.createElement("button", {
+    key: m.id,
+    onClick: e => {
+      setViewMode(m.id);
+      e.currentTarget.blur();
+    },
+    style: {
+      ...S.subNavBtn,
+      ...(viewMode === m.id ? S.subNavBtnActive : {})
+    }
+  }, m.label))), viewMode === "game" && /*#__PURE__*/React.createElement("select", {
+    style: S.select,
+    value: selectedGame.id,
+    onChange: e => setGameId(e.target.value)
+  }, focusGames.map(g => /*#__PURE__*/React.createElement("option", {
+    key: g.id,
+    value: g.id
+  }, gameLabel(g)))), others.length === 0 ? /*#__PURE__*/React.createElement("p", {
     style: S.hint
-  }, viewMode === "game" ? `Für ${focus.name} gibt es in diesem Spiel keine gemeinsamen Runden mit anderen Spielern.` : `Für ${focus.name} gibt es noch keine gemeinsamen Runden mit anderen Spielern.`) : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, viewMode === "game" ? `Für ${focus.name} gibt es in diesem Spiel keine gemeinsamen Runden mit anderen Spielern.` : `Für ${focus.name} gibt es noch keine gemeinsamen Runden mit anderen Spielern.`) : /*#__PURE__*/React.createElement(React.Fragment, null, viewMode === "overall" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.statGroupLabel,
+      marginTop: 4
+    }
+  }, "Auffälligkeiten"), /*#__PURE__*/React.createElement("div", {
+    style: S.statGrid
+  }, highlight("Lieblingspartner", pick("with", true), "with"), highlight("Pechpartner", pick("with", false), "with"), highlight("Lieblingsgegner", pick("vs", true), "vs"), highlight("Angstgegner", pick("vs", false), "vs")), /*#__PURE__*/React.createElement("p", {
+    style: {
+      ...S.graphNote,
+      textAlign: "left",
+      marginTop: 8
+    }
+  }, "Gezählt werden nur Spieler mit mindestens ", H2H_MIN_ROUNDS, " gemeinsamen Runden im Team bzw. als Gegner.")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.statGroupLabel,
+      marginTop: viewMode === "overall" ? 18 : 4
+    }
+  }, "Bilanz pro Spieler"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      ...S.hint,
+      marginBottom: 10
+    }
+  }, "Gewonnene : verlorene Runden von ", focus.name, ". ", /*#__PURE__*/React.createElement("b", null, "Gegen"), " = auf gegnerischen Seiten,", " ", /*#__PURE__*/React.createElement("b", null, "Mit"), " = im selben Team."), /*#__PURE__*/React.createElement("div", {
     style: S.h2hLegendRow
   }, /*#__PURE__*/React.createElement("span", {
     style: S.h2hLegendVs
@@ -2347,57 +2427,40 @@ function HeadToHeadView({
     style: S.h2hLegendWith
   }, "mit")), others.map(o => /*#__PURE__*/React.createElement(H2HRow, {
     key: o.id,
-    focusName: focus.name,
     other: o
   })), /*#__PURE__*/React.createElement("p", {
     style: S.graphNote
-  }, "\u201Egegen\" = Duell-Runden (gegnerische Seiten) \xB7 \u201Emit\" = Team-Runden (gleiche Seite)", viewMode === "game" ? " — nur dieses Spiel." : "")));
+  }, "Sortiert nach Anzahl gemeinsamer Runden", viewMode === "game" ? " · nur dieses Spiel" : "", ".")));
 }
 function H2HRow({
-  focusName,
   other
 }) {
-  const vsTotal = other.vsWins + other.vsLosses;
-  const withTotal = other.withWins + other.withLosses;
-  const vsRate = vsTotal > 0 ? Math.round(other.vsWins / vsTotal * 100) : null;
-  const withRate = withTotal > 0 ? Math.round(other.withWins / withTotal * 100) : null;
+  const cell = (wins, losses, total, rate) => /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.h2hCell,
+      width: 108
+    }
+  }, total === 0 ? /*#__PURE__*/React.createElement("span", {
+    style: S.h2hEmpty
+  }, "—") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+    style: S.h2hWin
+  }, wins), /*#__PURE__*/React.createElement("span", {
+    style: S.h2hSep
+  }, ":"), /*#__PURE__*/React.createElement("span", {
+    style: S.h2hLoss
+  }, losses), /*#__PURE__*/React.createElement("span", {
+    style: {
+      ...S.h2hPct,
+      color: rateColor(rate)
+    }
+  }, rate, "%")));
   return /*#__PURE__*/React.createElement("div", {
     style: S.h2hRow
   }, /*#__PURE__*/React.createElement("div", {
     style: S.h2hName
   }, other.name), /*#__PURE__*/React.createElement("div", {
     style: S.h2hBalances
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      ...S.h2hCell,
-      width: 108
-    }
-  }, vsTotal === 0 ? /*#__PURE__*/React.createElement("span", {
-    style: S.h2hEmpty
-  }, "\u2014") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
-    style: S.h2hWin
-  }, other.vsWins), /*#__PURE__*/React.createElement("span", {
-    style: S.h2hSep
-  }, ":"), /*#__PURE__*/React.createElement("span", {
-    style: S.h2hLoss
-  }, other.vsLosses), vsRate !== null && /*#__PURE__*/React.createElement("span", {
-    style: S.h2hPct
-  }, vsRate, "%"))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      ...S.h2hCell,
-      width: 108
-    }
-  }, withTotal === 0 ? /*#__PURE__*/React.createElement("span", {
-    style: S.h2hEmpty
-  }, "\u2014") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
-    style: S.h2hWin
-  }, other.withWins), /*#__PURE__*/React.createElement("span", {
-    style: S.h2hSep
-  }, ":"), /*#__PURE__*/React.createElement("span", {
-    style: S.h2hLoss
-  }, other.withLosses), withRate !== null && /*#__PURE__*/React.createElement("span", {
-    style: S.h2hPct
-  }, withRate, "%")))));
+  }, cell(other.vsWins, other.vsLosses, other.vsTotal, other.vsRate), cell(other.withWins, other.withLosses, other.withTotal, other.withRate)));
 }
 
 // ============================================================
