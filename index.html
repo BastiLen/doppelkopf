@@ -305,6 +305,8 @@ function computePlayerStats(playerId, games) {
   // 100 Runden (griffige Zahl, fairer Vergleich unabhängig von Spiellänge).
   stats.avgPointsPerRound = stats.roundsPlayed > 0 ? stats.totalPoints / stats.roundsPlayed : 0;
   stats.pointsPer100Rounds = stats.avgPointsPerRound * 100;
+  // Nur gewonnene Runden: wie viele Punkte bringt ein Rundensieg im Schnitt?
+  stats.avgPointsPerWonRound = stats.roundWins > 0 ? stats.totalPoints / stats.roundWins : 0;
   stats.soloWinRate = stats.soloPlayed > 0 ? stats.soloWon / stats.soloPlayed : 0;
   return stats;
 }
@@ -2498,7 +2500,12 @@ function PlayerStatDetail({
     value: num1(stats.avgPointsPerGame)
   }), /*#__PURE__*/React.createElement(StatCard, {
     label: "\xD8 pro Runde",
-    value: num1(stats.avgPointsPerRound)
+    value: num1(stats.avgPointsPerRound),
+    sub: "inkl. verlorener Runden"
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    label: "\xD8 pro Sieg-Runde",
+    value: stats.roundWins > 0 ? num1(stats.avgPointsPerWonRound) : "\u2014",
+    sub: "nur gewonnene Runden"
   }), /*#__PURE__*/React.createElement(StatCard, {
     label: "\xD8 / 100 Runden",
     value: Math.round(stats.pointsPer100Rounds),
