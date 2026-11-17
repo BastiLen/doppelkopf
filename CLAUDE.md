@@ -61,8 +61,8 @@ wertet nur aus.
   Serie, dann Gruppen „Spiele", „Runden", „Punkte" mit je gerader
   Kachelzahl — keine doppelten Kennzahlen (z. B. kein „Ø / 100 Runden" mehr,
   keine „schlechteste Runde", da Verlierer immer 0 bekommen).
-- Längste Runden-Serien pro Spieler („Längste Siegesserie" / „Längste
-  Pechsträhne"): SPIELÜBERGREIFEND, d. h. die laufende Serie wird beim
+- Längste Runden-Serien pro Spieler (Kacheln „Siegesserie" / „Pechsträhne",
+  Untertitel „Rekord: …"): SPIELÜBERGREIFEND, d. h. die laufende Serie wird beim
   Spielwechsel nicht zurückgesetzt (Spiele chronologisch nach finishedAt,
   Runden in Erfassungsreihenfolge; Spiele ohne den Spieler zählen nicht).
   Darunter steht, wann die Serie war (Datum + Runden bzw. Zeitraum + Anzahl
@@ -136,10 +136,24 @@ wertet nur aus.
   (z. B. subNav 10 mit Padding 4 → Buttons 6).
 - **Tiefe im Dark Mode:** über hellere Flächen (`C.panel2` für Dialoge und
   hervorgehobene Ebenen), nicht über Schatten.
+- **Navigation:** fixierte Tab-Leiste UNTEN (Icon + kurzer Text), mit
+  `env(safe-area-inset-bottom)` für den iPhone-Home-Balken; die App hat
+  dafür unten Abstand (`paddingBottom` in `S.app`).
+- **Icons:** Lucide-Icons als Inline-SVG über die Komponente `Icon`
+  (Daten in `ICONS`), keine Bibliothek. Nur dort einsetzen, wo sie etwas
+  erklären (Navigation, Bearbeiten/Löschen/Zurück/Teilen, wenige Akzente
+  bei Serien und Duell-Auffälligkeiten) — nicht vor jede Kennzahl.
+  Strichstärke an die Schrift daneben anpassen (ca. 1.9–2.4).
 - **Volle Höhe:** `100dvh` (mit `100vh` als Fallback) im `<style>`-Block;
   `#root` ist eine Flex-Spalte, die App füllt sie mit `flex: 1`.
 
 ## Arbeitsweise in diesem Projekt
+
+- **Testversion vor dem Hochladen:** Auf Wunsch eine Vorschau als privates
+  claude.ai-Artifact bauen: Cloud-Speicher abgeschaltet (loadCloud/saveCloud
+  liefern sofort null/false), eigener localStorage-Key, Start mit
+  Testdaten, als „Testversion" gekennzeichnet. Änderungen dafür auf einem
+  eigenen Branch halten und erst nach Freigabe nach `main` übernehmen.
 
 - Bei Änderungswünschen die bestehende App iterativ erweitern, nicht bei
   null anfangen.
