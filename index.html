@@ -656,25 +656,219 @@ function Header() {
     style: S.logoSub
   }, "Statistik & Bilanzen"))));
 }
+// ============================================================
+// Icons (Lucide, ISC-Lizenz) als Inline-SVG — keine Zusatzbibliothek nötig.
+// Jedes Icon = Liste von [Element, Attribute]. Strichstärke passend zur
+// Schrift daneben wählen (fett/kleine Schrift -> eher 2.2, große -> 2).
+// ============================================================
+const ICONS = {
+  spade: [["path", {
+    d: "M5 9c-1.5 1.5-3 3.2-3 5.5A5.5 5.5 0 0 0 7.5 20c1.8 0 3-.5 4.5-2 1.5 1.5 2.7 2 4.5 2a5.5 5.5 0 0 0 5.5-5.5c0-2.3-1.5-4-3-5.5l-7-7-7 7Z"
+  }], ["path", {
+    d: "M12 18v4"
+  }]],
+  chart: [["path", {
+    d: "M3 3v18h18"
+  }], ["path", {
+    d: "M18 17V9"
+  }], ["path", {
+    d: "M13 17V5"
+  }], ["path", {
+    d: "M8 17v-3"
+  }]],
+  trophy: [["path", {
+    d: "M6 9H4.5a2.5 2.5 0 0 1 0-5H6"
+  }], ["path", {
+    d: "M18 9h1.5a2.5 2.5 0 0 0 0-5H18"
+  }], ["path", {
+    d: "M4 22h16"
+  }], ["path", {
+    d: "M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"
+  }], ["path", {
+    d: "M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"
+  }], ["path", {
+    d: "M18 2H6v7a6 6 0 0 0 12 0V2Z"
+  }]],
+  swords: [["polyline", {
+    points: "14.5 17.5 3 6 3 3 6 3 17.5 14.5"
+  }], ["line", {
+    x1: 13,
+    x2: 19,
+    y1: 19,
+    y2: 13
+  }], ["line", {
+    x1: 16,
+    x2: 20,
+    y1: 16,
+    y2: 20
+  }], ["line", {
+    x1: 19,
+    x2: 21,
+    y1: 21,
+    y2: 19
+  }], ["polyline", {
+    points: "14.5 6.5 18 3 21 3 21 6 17.5 9.5"
+  }], ["line", {
+    x1: 5,
+    x2: 9,
+    y1: 14,
+    y2: 18
+  }], ["line", {
+    x1: 7,
+    x2: 4,
+    y1: 17,
+    y2: 20
+  }], ["line", {
+    x1: 3,
+    x2: 5,
+    y1: 19,
+    y2: 21
+  }]],
+  users: [["path", {
+    d: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
+  }], ["circle", {
+    cx: 9,
+    cy: 7,
+    r: 4
+  }], ["path", {
+    d: "M22 21v-2a4 4 0 0 0-3-3.87"
+  }], ["path", {
+    d: "M16 3.13a4 4 0 0 1 0 7.75"
+  }]],
+  pencil: [["path", {
+    d: "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"
+  }], ["path", {
+    d: "m15 5 4 4"
+  }]],
+  x: [["path", {
+    d: "M18 6 6 18"
+  }], ["path", {
+    d: "m6 6 12 12"
+  }]],
+  chevronLeft: [["path", {
+    d: "m15 18-6-6 6-6"
+  }]],
+  chevronRight: [["path", {
+    d: "m9 18 6-6-6-6"
+  }]],
+  share: [["circle", {
+    cx: 18,
+    cy: 5,
+    r: 3
+  }], ["circle", {
+    cx: 6,
+    cy: 12,
+    r: 3
+  }], ["circle", {
+    cx: 18,
+    cy: 19,
+    r: 3
+  }], ["line", {
+    x1: 8.59,
+    x2: 15.42,
+    y1: 13.51,
+    y2: 17.49
+  }], ["line", {
+    x1: 15.41,
+    x2: 8.59,
+    y1: 6.51,
+    y2: 10.49
+  }]],
+  flame: [["path", {
+    d: "M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"
+  }]],
+  cloudRain: [["path", {
+    d: "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"
+  }], ["path", {
+    d: "M16 14v6"
+  }], ["path", {
+    d: "M8 14v6"
+  }], ["path", {
+    d: "M12 16v6"
+  }]],
+  heart: [["path", {
+    d: "M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
+  }]],
+  heartCrack: [["path", {
+    d: "M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
+  }], ["path", {
+    d: "m12 13-1-1 2-2-3-3 2-2"
+  }]],
+  target: [["circle", {
+    cx: 12,
+    cy: 12,
+    r: 10
+  }], ["circle", {
+    cx: 12,
+    cy: 12,
+    r: 6
+  }], ["circle", {
+    cx: 12,
+    cy: 12,
+    r: 2
+  }]],
+  ghost: [["path", {
+    d: "M9 10h.01"
+  }], ["path", {
+    d: "M15 10h.01"
+  }], ["path", {
+    d: "M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"
+  }]]
+};
+function Icon({
+  name,
+  size = 20,
+  stroke = 2,
+  color = "currentColor",
+  style
+}) {
+  const parts = ICONS[name] || [];
+  return /*#__PURE__*/React.createElement("svg", {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: color,
+    strokeWidth: stroke,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": "true",
+    style: {
+      display: "block",
+      flexShrink: 0,
+      ...style
+    }
+  }, parts.map(([tag, attrs], i) => React.createElement(tag, {
+    key: i,
+    ...attrs
+  })));
+}
+
+// Untere Tab-Leiste: Icon + kurzer Text, mit dem Daumen gut erreichbar.
 function Nav({
   tab,
   setTab
 }) {
   const items = [{
     id: "spiel",
-    label: "Spiel"
+    label: "Spiel",
+    icon: "spade"
   }, {
     id: "statistiken",
-    label: "Statistik"
+    label: "Statistik",
+    icon: "chart"
   }, {
     id: "ranglisten",
-    label: "Ranglisten"
+    label: "Ranglisten",
+    icon: "trophy"
   }, {
     id: "duelle",
-    label: "Duelle"
+    label: "Duelle",
+    icon: "swords"
   }, {
     id: "spieler",
-    label: "Spieler"
+    label: "Spieler",
+    icon: "users"
   }];
   return /*#__PURE__*/React.createElement("nav", {
     style: S.nav
@@ -685,12 +879,23 @@ function Nav({
       onClick: e => {
         setTab(it.id);
         e.currentTarget.blur();
+        window.scrollTo(0, 0);
       },
       style: {
         ...S.navBtn,
         ...(active ? S.navBtnActive : {})
+      },
+      "aria-current": active ? "page" : undefined
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        ...S.navIconPill,
+        ...(active ? S.navIconPillActive : {})
       }
-    }, it.label);
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: it.icon,
+      size: 21,
+      stroke: active ? 2.2 : 1.9
+    })), /*#__PURE__*/React.createElement("span", null, it.label));
   }));
 }
 function Footer({
@@ -1286,7 +1491,10 @@ function GameSetup({
       style: S.pastGameNames
     }, g.rounds.length > 0 ? "🥇 " + winners.map(nameOf).join(" & ") + " · " : "", g.playerIds.map(nameOf).join(", "))), /*#__PURE__*/React.createElement("span", {
       style: S.statRowArrow
-    }, "\u203A"));
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "chevronRight",
+      size: 18
+    })));
   }), finished.length > 5 && /*#__PURE__*/React.createElement("button", {
     style: S.btnTextGhost,
     onClick: () => setShowAll(v => !v)
@@ -1477,14 +1685,20 @@ function RoundList({
       style: S.iconBtn,
       "aria-label": `Runde ${idx + 1} bearbeiten`,
       onClick: () => setEditIndex(idx)
-    }, "\u270E"), /*#__PURE__*/React.createElement("button", {
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "pencil",
+      size: 16
+    })), /*#__PURE__*/React.createElement("button", {
       style: {
         ...S.iconBtn,
         color: C.red
       },
       "aria-label": `Runde ${idx + 1} löschen`,
       onClick: () => deleteRound(idx)
-    }, "\u2715"));
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "x",
+      size: 17
+    })));
   }), game.rounds.length > collapsedCount && /*#__PURE__*/React.createElement("button", {
     style: {
       ...S.btnTextGhost,
@@ -1736,7 +1950,11 @@ function GameSummary({
   return /*#__PURE__*/React.createElement("section", null, /*#__PURE__*/React.createElement("button", {
     style: S.backBtn,
     onClick: onBack
-  }, "\u2039 Zur\xFCck zu \u201ENeues Spiel\""), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "chevronLeft",
+    size: 18,
+    stroke: 2.4
+  }), "Zur\xFCck zu \u201ENeues Spiel\""), /*#__PURE__*/React.createElement("div", {
     style: S.sectionHead
   }, /*#__PURE__*/React.createElement("h2", {
     style: S.h2
@@ -1786,9 +2004,16 @@ function GameSummary({
     accent: true,
     sub: best ? `${best.winners.map(nameOf).join(" & ")} · Runde ${best.number}${best.isSolo ? " · Solo" : ""}` : null
   })), hasRounds && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
-    style: S.btnPrimaryWide,
+    style: {
+      ...S.btnPrimaryWide,
+      ...S.btnWithIcon
+    },
     onClick: onShare
-  }, "Ergebnis teilen"), shareMsg && /*#__PURE__*/React.createElement("p", {
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "share",
+    size: 18,
+    stroke: 2.3
+  }), "Ergebnis teilen"), shareMsg && /*#__PURE__*/React.createElement("p", {
     style: {
       ...S.hint,
       textAlign: "center",
@@ -2398,12 +2623,14 @@ function HeadToHeadView({
     if (pool.length === 0) return null;
     return [...pool].sort((a, b) => (best ? b[rate] - a[rate] : a[rate] - b[rate]) || b[total] - a[total])[0];
   };
-  const highlight = (label, o, kind) => {
+  const highlight = (label, o, kind, icon, iconColor) => {
     if (!o) return /*#__PURE__*/React.createElement(StatCard, {
       label: label,
       value: "—",
       small: true,
-      sub: "zu wenige Runden"
+      sub: "zu wenige Runden",
+      icon: icon,
+      iconColor: iconColor
     });
     const w = kind === "vs" ? o.vsWins : o.withWins;
     const l = kind === "vs" ? o.vsLosses : o.withLosses;
@@ -2412,7 +2639,9 @@ function HeadToHeadView({
       label: label,
       value: o.name,
       small: true,
-      sub: `${w} : ${l} Runden · ${rate} %`
+      sub: `${w} : ${l} Runden · ${rate} %`,
+      icon: icon,
+      iconColor: iconColor
     });
   };
   return /*#__PURE__*/React.createElement("section", null, /*#__PURE__*/React.createElement("div", {
@@ -2466,7 +2695,7 @@ function HeadToHeadView({
     }
   }, "Auffälligkeiten"), /*#__PURE__*/React.createElement("div", {
     style: S.statGrid
-  }, highlight("Lieblingspartner", pick("with", true), "with"), highlight("Pechpartner", pick("with", false), "with"), highlight("Lieblingsgegner", pick("vs", true), "vs"), highlight("Angstgegner", pick("vs", false), "vs")), /*#__PURE__*/React.createElement("p", {
+  }, highlight("Lieblingspartner", pick("with", true), "with", "heart", C.green), highlight("Pechpartner", pick("with", false), "with", "heartCrack", C.red), highlight("Lieblingsgegner", pick("vs", true), "vs", "target", C.green), highlight("Angstgegner", pick("vs", false), "vs", "ghost", C.red)), /*#__PURE__*/React.createElement("p", {
     style: {
       ...S.graphNote,
       textAlign: "left",
@@ -2648,7 +2877,10 @@ function StatsView({
     style: S.statRowValueLabel
   }, "Win-Rate")), /*#__PURE__*/React.createElement("span", {
     style: S.statRowArrow
-  }, "\u203A")))));
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "chevronRight",
+    size: 18
+  }))))));
 }
 
 // Kurzbeschreibung, wann eine Runden-Serie war.
@@ -2691,7 +2923,11 @@ function PlayerStatDetail({
   return /*#__PURE__*/React.createElement("section", null, /*#__PURE__*/React.createElement("button", {
     style: S.backBtn,
     onClick: onBack
-  }, "‹ Zurück"), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "chevronLeft",
+    size: 18,
+    stroke: 2.4
+  }), "Zur\xFCck"), /*#__PURE__*/React.createElement("div", {
     style: S.statHeader
   }, /*#__PURE__*/React.createElement("div", {
     style: S.statAvatar
@@ -2742,16 +2978,20 @@ function PlayerStatDetail({
     value: stats.soloPlayed > 0 ? pct(stats.soloWinRate) : "—",
     sub: stats.soloPlayed > 0 ? `${stats.soloWon} von ${plural(stats.soloPlayed, "Solo", "Solos")} gewonnen` : "noch kein Solo"
   }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "L\xE4ngste Siegesserie",
+    label: "Siegesserie",
+    icon: "flame",
+    iconColor: C.green,
     value: stats.longestRoundWinStreak,
     valueColor: C.green,
-    sub: `${stats.longestRoundWinStreak === 1 ? "Runde" : "Runden"} am St\xFCck gewonnen`,
+    sub: `Rekord: ${stats.longestRoundWinStreak === 1 ? "Runde" : "Runden"} am St\xFCck gewonnen`,
     detail: describeStreakWhen(stats.longestRoundWinStreakWhen)
   }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "L\xE4ngste Pechstr\xE4hne",
+    label: "Pechstr\xE4hne",
+    icon: "cloudRain",
+    iconColor: C.red,
     value: stats.longestRoundLossStreak,
     valueColor: C.red,
-    sub: `${stats.longestRoundLossStreak === 1 ? "Runde" : "Runden"} am St\xFCck verloren`,
+    sub: `Rekord: ${stats.longestRoundLossStreak === 1 ? "Runde" : "Runden"} am St\xFCck verloren`,
     detail: describeStreakWhen(stats.longestRoundLossStreakWhen)
   })), /*#__PURE__*/React.createElement("p", {
     style: {
@@ -2828,7 +3068,9 @@ function StatCard({
   small,
   wide,
   valueColor,
-  detail
+  detail,
+  icon,
+  iconColor
 }) {
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2838,8 +3080,16 @@ function StatCard({
       } : {})
     }
   }, /*#__PURE__*/React.createElement("div", {
-    style: S.statCardLabel
-  }, label), /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.statCardLabel,
+      ...(icon ? S.statCardLabelWithIcon : {})
+    }
+  }, icon && /*#__PURE__*/React.createElement(Icon, {
+    name: icon,
+    size: 14,
+    stroke: 2.2,
+    color: iconColor || C.textDim
+  }), label), /*#__PURE__*/React.createElement("div", {
     style: {
       ...S.statCardValue,
       ...(accent ? S.statCardValueAccent : {}),
@@ -2885,6 +3135,8 @@ const S = {
     flex: 1,
     width: "100%",
     maxWidth: 640,
+    // Platz für die fixierte Tab-Leiste unten
+    paddingBottom: "calc(66px + env(safe-area-inset-bottom))",
     margin: "0 auto",
     display: "flex",
     flexDirection: "column"
@@ -2925,30 +3177,54 @@ const S = {
     letterSpacing: 1.5,
     textTransform: "uppercase"
   },
+  // Untere Tab-Leiste (fixiert). Hellere Fläche als der Seitenhintergrund
+  // zeigt im Dark Mode die Ebene; unten Platz für den iPhone-Home-Balken.
   nav: {
+    position: "fixed",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
     display: "flex",
-    gap: 4,
-    padding: "10px 14px",
-    borderBottom: `1px solid ${C.line}`,
-    position: "sticky",
-    top: 0,
-    background: C.bg,
-    zIndex: 5
+    justifyContent: "space-around",
+    maxWidth: 640,
+    margin: "0 auto",
+    padding: "6px 6px calc(6px + env(safe-area-inset-bottom))",
+    background: C.panel,
+    borderTop: `1px solid ${C.line}`
   },
   navBtn: {
     flex: 1,
-    padding: "10px 8px",
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 3,
+    padding: "4px 0",
     background: "transparent",
     color: C.textDim,
     border: "none",
-    borderRadius: 8,
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: 600,
-    cursor: "pointer"
+    letterSpacing: 0.2,
+    cursor: "pointer",
+    outline: "none",
+    WebkitTapHighlightColor: "transparent"
   },
   navBtnActive: {
-    background: C.panel2,
     color: C.accent
+  },
+  navIconPill: {
+    width: 52,
+    height: 30,
+    borderRadius: 15,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "background 0.2s"
+  },
+  navIconPillActive: {
+    background: C.panel2
   },
   main: {
     padding: "18px 20px 24px",
@@ -3462,11 +3738,16 @@ const S = {
     letterSpacing: 0.3
   },
   statRowArrow: {
+    display: "flex",
     fontSize: 20,
     color: C.textDim,
     lineHeight: 1
   },
   backBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 2,
+    marginLeft: -5,
     background: "transparent",
     border: "none",
     color: C.accent,
@@ -3528,6 +3809,17 @@ const S = {
     fontSize: 12,
     color: C.textDim,
     marginBottom: 6
+  },
+  statCardLabelWithIcon: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5
+  },
+  btnWithIcon: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8
   },
   statCardValue: {
     fontSize: 24,
