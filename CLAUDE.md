@@ -124,6 +124,21 @@ wertet nur aus.
 - Bei Layout-Änderungen an flexiblen `width: 100%`-Elementen immer auf
   Handy-Breite (~375–390px) testen, nicht nur auf Desktop.
 
+## Design-Regeln
+
+- **Rahmen:** `C.line` ist halbtransparent (`rgb(159 176 192 / 0.18)`), damit
+  Rahmen auf jedem Untergrund gleich dezent wirken. Für Flächen, die nicht
+  durchscheinen sollen, `C.lineSolid` nehmen.
+- **Spielerfarben (`LINE_COLORS`):** in OKLCH mit gleicher Helligkeit
+  (L = 0.76) erzeugt und als Hex hinterlegt. Neue Farben ebenso erzeugen,
+  sonst wirkt eine Linie dunkler/auffälliger als die anderen.
+- **Verschachtelte Rundungen:** Innenradius = Außenradius − Abstand
+  (z. B. subNav 10 mit Padding 4 → Buttons 6).
+- **Tiefe im Dark Mode:** über hellere Flächen (`C.panel2` für Dialoge und
+  hervorgehobene Ebenen), nicht über Schatten.
+- **Volle Höhe:** `100dvh` (mit `100vh` als Fallback) im `<style>`-Block;
+  `#root` ist eine Flex-Spalte, die App füllt sie mit `flex: 1`.
+
 ## Arbeitsweise in diesem Projekt
 
 - Bei Änderungswünschen die bestehende App iterativ erweitern, nicht bei

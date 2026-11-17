@@ -25,10 +25,16 @@
       background: #141a24;
       /* Sichere Bereiche fürs iPhone-Notch/Home-Indicator */
       min-height: 100vh;
+      /* dvh = tatsächlich sichtbare Höhe (Safari blendet sonst die Leiste darüber) */
+      min-height: 100dvh;
       overflow-x: hidden;
     }
     #root {
       min-height: 100vh;
+      min-height: 100dvh;
+      /* App füllt #root aus, damit der Footer unten sitzt */
+      display: flex;
+      flex-direction: column;
     }
   </style>
 
@@ -1807,25 +1813,29 @@ function GameSummary({
 // ============================================================
 
 // Feste Farbpalette für Spieler-Linien (nach Index im Spiel/Auswahl).
-const LINE_COLORS = ["#e0b64f",
-// gold
-"#4f9d78",
-// grün
-"#5b8dd0",
-// blau
-"#d0555a",
-// rot
-"#a978d0",
-// violett
-"#d08a4f",
-// orange
-"#4fb0b0",
-// türkis
-"#c96f9c",
-// pink
-"#8a9bb0",
-// grau-blau
-"#b0b04f" // oliv
+// In OKLCH erzeugt (gleiche Helligkeit L = 0.76, nur Farbton/Sättigung
+// verschieden), damit keine Linie dunkler/auffälliger wirkt als die andere
+// und dunkle Schrift auf allen Chips gleich gut lesbar ist. Als Hex
+// hinterlegt, damit auch ältere Browser sie anzeigen.
+const LINE_COLORS = ["#d7aa42",
+// gold    (oklch 0.76 0.13 85)
+"#65c98c",
+// grün    (oklch 0.76 0.13 155)
+"#7cb4fc",
+// blau    (oklch 0.76 0.12 255)
+"#f98f87",
+// rot     (oklch 0.76 0.13 25)
+"#c49bf3",
+// violett (oklch 0.76 0.13 305)
+"#f0995b",
+// orange  (oklch 0.76 0.13 55)
+"#47c7c7",
+// türkis  (oklch 0.76 0.11 195)
+"#ee8dbd",
+// pink    (oklch 0.76 0.13 350)
+"#9db4c9",
+// grau-blau (oklch 0.76 0.04 245)
+"#afba5c" // oliv (oklch 0.76 0.12 115)
 ];
 function RankingsView({
   data
@@ -2804,7 +2814,7 @@ function PlacementBars({
     style: {
       ...S.placeFill,
       height: `${n / max * 100}%`,
-      background: i === 0 ? C.accent : C.line
+      background: i === 0 ? C.accent : C.lineSolid
     }
   })), /*#__PURE__*/React.createElement("div", {
     style: S.placeLabel
@@ -2852,7 +2862,11 @@ const C = {
   bg: "#141a24",
   panel: "#1c2532",
   panel2: "#232e3d",
-  line: "#31404f",
+  // Rahmen halbtransparent statt fester Farbe: wirkt auf jedem Untergrund
+  // (bg, panel, panel2) gleich dezent.
+  line: "rgb(159 176 192 / 0.18)",
+  // Feste Variante für Flächen, die nicht durchscheinen sollen (Balken)
+  lineSolid: "#31404f",
   text: "#e8edf2",
   textDim: "#9fb0c0",
   accent: "#e0b64f",
@@ -2868,7 +2882,8 @@ const S = {
     fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
     background: C.bg,
     color: C.text,
-    minHeight: "100vh",
+    flex: 1,
+    width: "100%",
     maxWidth: 640,
     margin: "0 auto",
     display: "flex",
@@ -2877,7 +2892,7 @@ const S = {
   loading: {
     background: C.bg,
     color: C.textDim,
-    minHeight: "100vh",
+    flex: 1,
     display: "flex",
     alignItems: "center",
     justifyContent: "center"
@@ -3366,7 +3381,8 @@ const S = {
   confirmCard: {
     width: "100%",
     maxWidth: 340,
-    background: C.panel,
+    // Im Dark Mode zeigt eine hellere Fläche die Ebene besser als ein Schatten
+    background: C.panel2,
     border: `1px solid ${C.line}`,
     borderRadius: 14,
     padding: "20px 20px 16px",
@@ -3637,7 +3653,8 @@ const S = {
     background: "transparent",
     color: C.textDim,
     border: "none",
-    borderRadius: 7,
+    // Innenradius = Außenradius von subNav (10) minus dessen Padding (4)
+    borderRadius: 6,
     fontSize: 13,
     fontWeight: 600,
     cursor: "pointer",
