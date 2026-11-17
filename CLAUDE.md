@@ -144,6 +144,11 @@ wertet nur aus.
   erklären (Navigation, Bearbeiten/Löschen/Zurück/Teilen, wenige Akzente
   bei Serien und Duell-Auffälligkeiten) — nicht vor jede Kennzahl.
   Strichstärke an die Schrift daneben anpassen (ca. 1.9–2.4).
+- **iPhone-Statusleiste:** Als Homescreen-App liegt die Seite unter der
+  Statusleiste (`black-translucent`, `viewport-fit=cover`). Oben braucht
+  deshalb der Header `env(safe-area-inset-top)` als Abstand, unten die
+  Tab-Leiste `env(safe-area-inset-bottom)`. In Chromium-Tests sind beide 0,
+  dort fällt ein fehlender Abstand nicht auf.
 - **Volle Höhe:** `100dvh` (mit `100vh` als Fallback) im `<style>`-Block;
   `#root` ist eine Flex-Spalte, die App füllt sie mit `flex: 1`.
 

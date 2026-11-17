@@ -3153,7 +3153,9 @@ const S = {
     fontSize: 15
   },
   header: {
-    padding: "20px 20px 14px",
+    // Als Homescreen-App reicht die Seite bis unter die iPhone-Statusleiste
+    // (black-translucent + viewport-fit=cover) -> oben deren Höhe freilassen.
+    padding: "calc(20px + env(safe-area-inset-top, 0px)) 20px 14px",
     borderBottom: `1px solid ${C.line}`
   },
   logo: {
